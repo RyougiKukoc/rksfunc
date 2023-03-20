@@ -1,5 +1,5 @@
 from vapoursynth import core, VideoNode
-from .resample import *
+from ._resample import *
 
 
 def w2xtrt(clip: VideoNode, noise, test=False, o420p16=False, trtargs=dict(), w2b=None) -> VideoNode:

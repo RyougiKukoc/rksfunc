@@ -1,6 +1,6 @@
 from vapoursynth import core, VideoNode
 from functools import partial
-from .resample import *
+from ._resample import *
 
 
 def scanny(c16: VideoNode) -> VideoNode:

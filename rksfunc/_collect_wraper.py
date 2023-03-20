@@ -1,6 +1,6 @@
 from vapoursynth import core, VideoNode
 from typing import Union, Tuple
-from .resample import *
+from ._resample import *
 
 
 def syn_deband(cyuv16: VideoNode, r1=12, y1=64, uv1=48, r2=21, y2=48, uv2=32, mstr=6000, inflate=2,

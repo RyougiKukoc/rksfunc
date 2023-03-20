@@ -29,7 +29,7 @@ def sourcer(fn: str, mode=1) -> VideoNode:
 def ivtcqtg(c8: VideoNode, withdaa: bool = True, opencl: bool = True) -> VideoNode:
     from havsfunc import QTGMC, daa
     from mvsfunc import FilterCombed
-    from .resample import depth
+    from ._resample import depth
     
     field_match = c8.vivtc.VFM(order=1, mode=3, cthresh=10)
     deint = QTGMC(c8, "fast", TFF=True, FPSDivisor=2, opencl=True)
@@ -39,7 +39,7 @@ def ivtcqtg(c8: VideoNode, withdaa: bool = True, opencl: bool = True) -> VideoNo
 
 def ivtcdrb(clip: VideoNode, bifrost: bool = False, rainbowsmooth: bool = False, order=1) -> VideoNode:
     from havsfunc import daa
-    from .resample import depth
+    from ._resample import depth
     
     if clip.format.bits_per_sample != 8:
         clip = depth(clip, 8)
