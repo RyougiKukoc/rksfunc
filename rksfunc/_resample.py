@@ -234,4 +234,4 @@ def rescaley(
         yrs = core.std.MaskedMerge(rescale, y, cmask)
         
     y_rescale = mergeuv(yrs, clip) if is_yuv else yrs
-    return y_rescale, cmask if maskmode == 2 else y_rescale
+    return (y_rescale, cmask) if maskmode == 2 else y_rescale
