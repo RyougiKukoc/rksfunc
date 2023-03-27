@@ -137,6 +137,8 @@ def crop420(clip: VideoNode, l=0, r=0, t=0, b=0) -> VideoNode:
     from functools import partial
     from vapoursynth import YUV
     
+    if l == 0 and r == 0 and t == 0 and b == 0:
+        return clip
     if not clip.format.name.startswith("YUV420"):
         raise ValueError("Input clip must be YUV420.")
     if (l + r) % 2 == 1 or (t + b) % 2 == 1:
