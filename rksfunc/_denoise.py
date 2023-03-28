@@ -23,7 +23,7 @@ def dpirsmd(clip: VideoNode, dpargs: dict = {}, limargs: dict = {}, checkmode: b
     y_lm = LimitFilter(y, y_dp, **lim_preargs)
     dif = core.std.MakeDiff(y, y_dp)
     dif_lm = core.std.MakeDiff(y_lm, y_dp)
-    dif_md = SMDegrain(dif, RefineMotion=True, prefilter=dif_lm, dct=6, blksize=32)
+    dif_md = SMDegrain(dif, RefineMotion=True, prefilter=dif_lm, dct=6, blksize=32, vpad=0, hpad=0)
     mdg = core.std.MergeDiff(y_dp, dif_md)
     mdg = mergeuv(mdg, clip) if is_yuv else mdg
     mdg = mdg.fmtc.bitdepth(bits=origdep)
