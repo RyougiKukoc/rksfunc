@@ -240,3 +240,9 @@ def rescaley(
         
     y_rescale = mergeuv(yrs, clip) if is_yuv else yrs
     return (y_rescale, cmask) if maskmode == 2 else y_rescale
+
+
+def half444(c420: VideoNode) -> VideoNode:
+    y = yer(c420)
+    y_half = y.resize.Spline36(y.width // 2, y.height // 2, src_left=-.5)
+    return mergeuv(y_half, c420)
