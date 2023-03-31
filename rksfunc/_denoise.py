@@ -41,7 +41,13 @@ def dpirsmd(
         return mdg
     
     
-def w2xtrt(clip: VideoNode, noise, test=False, o420p16=False, trtargs=dict(), w2b=None) -> VideoNode:
+def w2xtrt(
+    clip: VideoNode, 
+    noise: int, 
+    test: bool = False,
+    ofmt: bool = False, 
+    w2xargs: dict = {}, 
+    **args) -> VideoNode:
     from vsmlrt import Waifu2x, Waifu2xModel, Backend
 
     if clip.format.name == "RGBS":
@@ -54,22 +60,15 @@ def w2xtrt(clip: VideoNode, noise, test=False, o420p16=False, trtargs=dict(), w2
     if test:
         w2x = crgbs.w2xnvk.Waifu2x(noise, 1, 2)
     else:
-        w2m = Waifu2xModel.cunet
-        if w2b is None:
-            w, h = clip.width, clip.height
-            preargs = dict(
-                max_shapes = (w, h), 
-                opt_shapes = (w, h), 
-                fp16 = True, 
-                workspace = 256, 
-                use_cuda_graph = True, 
-                num_streams = 2, 
-                static_shape = True
-            )
-            preargs.update(trtargs)
-            w2b = Backend.TRT(**preargs)
-        w2x = Waifu2x(crgbs, noise, 1, model=w2m, backend=w2b)
-    return to420p16(w2x) if o420p16 else w2x
+        preargs = {'backend': Backend.TRT(fp16=True)}
+        preargs.update(w2xargs)
+        w2x = Waifu2x(crgbs, noise, 1, model=Waifu2xModel.cunet, **preargs)
+    ofmt = args.get('o420p16', False) or ofmt  # history problem
+    
+    if ofmt:
+        return w2x.resize.Spline36(format=clip.format.id, matrix=1, dither_type='error_diffusion')
+    else:
+        return w2x
 
 
 def tempostab(clip: VideoNode) -> VideoNode:
