@@ -2,7 +2,14 @@ from vapoursynth import core, VideoNode
 from ._resample import *
 
 
-def dpirsmd(clip: VideoNode, dpargs: dict = {}, limargs: dict = {}, checkmode: bool = False) -> VideoNode:
+def dpirsmd(
+    clip: VideoNode, 
+    dpargs: dict = {}, 
+    limargs: dict = {}, 
+    checkmode: bool = False, 
+    tsmooth: bool = False,
+    ttsargs: dict = {}
+) -> VideoNode:
     from vapoursynth import YUV, GRAY
     from vsmlrt import DPIR, DPIRModel, Backend
     from mvsfunc import LimitFilter
@@ -11,22 +18,23 @@ def dpirsmd(clip: VideoNode, dpargs: dict = {}, limargs: dict = {}, checkmode: b
     assert clip.format.color_family in [YUV, GRAY]
     origdep = clip.format.bits_per_sample
     if origdep != 16:
-        clip = clip.fmtc.bitdepth(bits=16)
+        clip = depth(clip, 16)
     is_yuv = clip.format.color_family == YUV
     y = yer(clip) if is_yuv else clip
     dp_preargs = dict(strength=10, backend=Backend.TRT(fp16=True))
     dp_preargs.update(dpargs)
-    y_dp = DPIR(y.fmtc.bitdepth(bits=32), model=DPIRModel.drunet_gray, **dp_preargs) \
-        .fmtc.bitdepth(bits=16)
+    y_dp = depth(DPIR(depth(y, 32), model=DPIRModel.drunet_gray, **dp_preargs), 16)
     lim_preargs = dict(thr=3, elast=2)
     lim_preargs.update(limargs)
     y_lm = LimitFilter(y, y_dp, **lim_preargs)
     dif = core.std.MakeDiff(y, y_dp)
     dif_lm = core.std.MakeDiff(y_lm, y_dp)
     dif_md = SMDegrain(dif, RefineMotion=True, prefilter=dif_lm, dct=6, blksize=32, vpad=0, hpad=0)
+    if tsmooth:
+        y_dp = y_dp.ttmpsm.TTempSmooth(**ttsargs)
     mdg = core.std.MergeDiff(y_dp, dif_md)
     mdg = mergeuv(mdg, clip) if is_yuv else mdg
-    mdg = mdg.fmtc.bitdepth(bits=origdep)
+    mdg = depth(mdg, origdep)
     if checkmode:
         return y_dp, y_lm, mdg
     else:
