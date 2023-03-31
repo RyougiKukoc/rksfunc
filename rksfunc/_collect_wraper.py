@@ -56,6 +56,7 @@ def usm_dering(cyuv16: VideoNode, mat=None, mrad=3, mthr=50,
 
 
 def daaJanmod(clip: VideoNode, itr: int = 4, opencl: bool = True) -> VideoNode:
+    # copy from Jan
     # Interpolation
     if opencl:
         nnedi3 = core.nnedi3cl.NNEDI3CL
@@ -84,6 +85,7 @@ def daaJanmod(clip: VideoNode, itr: int = 4, opencl: bool = True) -> VideoNode:
 
 
 def AliceDeband(clip: VideoNode) -> VideoNode:
+    # copy from Alice
     from mvsfunc import LimitFilter
     from kagefunc import retinex_edgemask as rtx
     from vsutil import iterate
