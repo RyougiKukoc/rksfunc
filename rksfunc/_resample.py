@@ -3,6 +3,7 @@ from typing import Union, Tuple
 
 
 def depth(clip: VideoNode, bits, range=None, range_in=None) -> VideoNode:
+    # copy from fvsfunc
     from vapoursynth import INTEGER, FLOAT
     
     rangedict = {'limited': 0, 'full': 1}
@@ -105,6 +106,7 @@ def to444p16(crgbs: VideoNode, m: int = 1) -> VideoNode:
 
 
 def rgb2opp(clip: VideoNode, normalize: bool = False) -> VideoNode:
+    # copy from yvsfunc
     from vapoursynth import RGBS, YUV, MATRIX_UNSPECIFIED
     from math import sqrt
     
@@ -119,6 +121,7 @@ def rgb2opp(clip: VideoNode, normalize: bool = False) -> VideoNode:
 
 
 def opp2rgb(clip: VideoNode, normalize: bool = False) -> VideoNode:
+    # copy from yvsfunc
     from vapoursynth import YUV444PS, MATRIX_RGB, RGB 
     from math import sqrt
     
