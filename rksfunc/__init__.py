@@ -1,5 +1,3 @@
-from vapoursynth import core, VideoNode
-
 from ._resample import *
 from ._mask import *
 from ._denoise import *
