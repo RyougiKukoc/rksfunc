@@ -60,7 +60,8 @@ def w2xtrt(
     if test:
         w2x = crgbs.w2xnvk.Waifu2x(noise, 1, 2)
     else:
-        preargs = {'backend': Backend.TRT(fp16=True)}
+        w2xbe = args.get('w2b', Backend.TRT(fp16=True))
+        preargs = {'backend': w2xbe}
         preargs.update(w2xargs)
         w2x = Waifu2x(crgbs, noise, 1, model=Waifu2xModel.cunet, **preargs)
     ofmt = args.get('o420p16', False) or ofmt  # history problem
