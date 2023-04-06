@@ -7,13 +7,14 @@ def dpirsmd(
     dpargs: dict = {}, 
     limargs: dict = {}, 
     checkmode: bool = False, 
-    tsmooth: bool = False,
-    ttsargs: dict = {}
+    plane_qtg: bool = False, 
+    grain_qtg: bool = True, 
+    darkthr: int = 10000,  # Y value under darkthr (in 16 bit) will be considered as dark scene
 ) -> VideoNode:
     from vapoursynth import YUV, GRAY
     from vsmlrt import DPIR, DPIRModel, Backend
     from mvsfunc import LimitFilter
-    from havsfunc import SMDegrain
+    from havsfunc import QTGMC, MCTemporalDenoise
     
     assert clip.format.color_family in [YUV, GRAY]
     origdep = clip.format.bits_per_sample
@@ -21,18 +22,31 @@ def dpirsmd(
         clip = depth(clip, 16)
     is_yuv = clip.format.color_family == YUV
     y = yer(clip) if is_yuv else clip
+    
     dp_preargs = dict(strength=10, backend=Backend.TRT(fp16=True))
     dp_preargs.update(dpargs)
-    y_dp = depth(DPIR(depth(y, 32), model=DPIRModel.drunet_gray, **dp_preargs), 16)
+    y_qt = QTGMC(y, 'Fast', InputType=1, Sharpness=0, SourceMatch=3)
+    dpi = depth(y_qt if plane_qtg else y, 32)
+    y_dp = depth(DPIR(dpi, model=DPIRModel.drunet_gray, **dp_preargs), 16)
     lim_preargs = dict(thr=3, elast=2)
     lim_preargs.update(limargs)
     y_lm = LimitFilter(y, y_dp, **lim_preargs)
+    
+    # MDegrain
     dif = core.std.MakeDiff(y, y_dp)
     dif_lm = core.std.MakeDiff(y_lm, y_dp)
-    dif_md = SMDegrain(dif, RefineMotion=True, prefilter=dif_lm, dct=6, blksize=32, vpad=0, hpad=0)
-    if tsmooth:
-        y_dp = y_dp.ttmpsm.TTempSmooth(**ttsargs)
-    mdg = core.std.MergeDiff(y_dp, dif_md)
+    smd_pre = QTGMC(dif_lm, 'Fast', InputType=1, Sharpness=0, SourceMatch=3) if grain_qtg else dif_lm
+    dif_md = MCTemporalDenoise(dif, p=smd_pre, refine=True, DCT=6, blksize=32, limit=0)
+    mdg_l = core.std.MergeDiff(y_dp, dif_md)
+    
+    # protect dark scene
+    dif1 = core.std.MakeDiff(y, y_qt)
+    dif2 = core.std.MakeDiff(y, mdg_l)
+    neutral = 1 << (y.format.bits_per_sample - 1)
+    lim_mdg_dif = core.std.Expr([dif1, dif2], f'x {neutral} - abs y {neutral} - abs < x y ?')
+    mdg_d = core.std.MakeDiff(y, lim_mdg_dif)
+    mdg = core.std.Expr([mdg_l, mdg_d, y_dp], f'z {darkthr} < y x ?')
+    
     mdg = mergeuv(mdg, clip) if is_yuv else mdg
     mdg = depth(mdg, origdep)
     if checkmode:
