@@ -9,12 +9,15 @@ def dpirsmd(
     checkmode: bool = False, 
     plane_qtg: bool = False, 
     grain_qtg: bool = True, 
-    darkthr: int = 10000,  # Y value under darkthr (in 16 bit) will be considered as dark scene
+    prot_dark: bool = False,
+    prot_lthr: int = 8000,  # Y value under prot_lthr (in 16 bit) will be considered as dark scene
+    prot_hthr: int = 12000,  # A tanh buffer will be created to smooth between prot_lthr and prot_hthr
 ) -> VideoNode:
     from vapoursynth import YUV, GRAY
     from vsmlrt import DPIR, DPIRModel, Backend
     from mvsfunc import LimitFilter
     from havsfunc import QTGMC, MCTemporalDenoise
+    from math import tanh
     
     assert clip.format.color_family in [YUV, GRAY]
     origdep = clip.format.bits_per_sample
@@ -23,9 +26,10 @@ def dpirsmd(
     is_yuv = clip.format.color_family == YUV
     y = yer(clip) if is_yuv else clip
     
+    qtg_args = dict(Preset='Fast', InputType=1, Sharpness=0, SourceMatch=3)
     dp_preargs = dict(strength=10, backend=Backend.TRT(fp16=True))
     dp_preargs.update(dpargs)
-    y_qt = QTGMC(y, 'Fast', InputType=1, Sharpness=0, SourceMatch=3)
+    y_qt = QTGMC(y, **qtg_args)
     dpi = depth(y_qt if plane_qtg else y, 32)
     y_dp = depth(DPIR(dpi, model=DPIRModel.drunet_gray, **dp_preargs), 16)
     lim_preargs = dict(thr=3, elast=2)
@@ -35,17 +39,23 @@ def dpirsmd(
     # MDegrain
     dif = core.std.MakeDiff(y, y_dp)
     dif_lm = core.std.MakeDiff(y_lm, y_dp)
-    smd_pre = QTGMC(dif_lm, 'Fast', InputType=1, Sharpness=0, SourceMatch=3) if grain_qtg else dif_lm
-    dif_md = MCTemporalDenoise(dif, p=smd_pre, refine=True, DCT=6, blksize=32, limit=0)
+    dif_lm = QTGMC(dif_lm, **qtg_args) if grain_qtg else dif_lm
+    dif_md = MCTemporalDenoise(dif, p=dif_lm, refine=True, DCT=6, blksize=32, limit=0)
     mdg_l = core.std.MergeDiff(y_dp, dif_md)
     
     # protect dark scene
-    dif1 = core.std.MakeDiff(y, y_qt)
-    dif2 = core.std.MakeDiff(y, mdg_l)
-    neutral = 1 << (y.format.bits_per_sample - 1)
-    lim_mdg_dif = core.std.Expr([dif1, dif2], f'x {neutral} - abs y {neutral} - abs < x y ?')
-    mdg_d = core.std.MakeDiff(y, lim_mdg_dif)
-    mdg = core.std.Expr([mdg_l, mdg_d, y_dp], f'z {darkthr} < y x ?')
+    if prot_dark:
+        dif1 = core.std.MakeDiff(y, y_dp)
+        dif2 = core.std.MakeDiff(y, mdg_l)
+        neutral = 1 << 15
+        mdg_d = core.std.Expr([dif1, dif2, y_qt, mdg_l], f'x {neutral} - abs y {neutral} - abs < z a ?')
+        y_mid = (prot_lthr + prot_hthr) / 2
+        y_len = (prot_hthr - prot_lthr) / 4
+        lut_y = [(1 + tanh((x - y_mid) / y_len)) / 2 * 65535 for x in range(65536)]
+        dmask = core.std.Lut(y_dp, lut=lut_y)
+        mdg = core.std.MaskedMerge(mdg_d, mdg_l, dmask)
+    else:
+        mdg = mdg_l
     
     mdg = mergeuv(mdg, clip) if is_yuv else mdg
     mdg = depth(mdg, origdep)
