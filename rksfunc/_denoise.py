@@ -96,9 +96,9 @@ def w2xtrt(
         return w2x
 
 
-def tempostab(clip: VideoNode) -> VideoNode:
+def tempostab(clip: VideoNode, mdargs: dict = {}, mdmode=1) -> VideoNode:
     from vapoursynth import YUV, GRAY, Error
-    from havsfunc import SMDegrain, QTGMC
+    from havsfunc import SMDegrain, QTGMC, MCTemporalDenoise
     
     if clip.format.color_family != YUV and clip.format.color_family != GRAY:
         raise Error("rksfunc.tempostab: only YUV and GRAY format are supported.")
@@ -110,7 +110,16 @@ def tempostab(clip: VideoNode) -> VideoNode:
     else:
         clip_y = clip
     tref = QTGMC(clip_y, InputType=1, Sharpness=0, SourceMatch=3)
-    smd = SMDegrain(clip_y, RefineMotion=True, dct=6, blksize=32, prefilter=tref)
+    if mdmode == 1:
+        pre_mdargs = {'RefineMotion': True, 'dct': 6, 'blksize': 32, 'prefilter': tref}
+        pre_mdargs.update(mdargs)
+        smd = SMDegrain(clip_y, **pre_mdargs)
+    elif mdmode == 2:
+        pre_mdargs = {'p': tref, 'refine': True, 'blksize': 32, 'limit': 0, 'DCT': 6}
+        pre_mdargs.update(mdargs)
+        smd = MCTemporalDenoise(clip_y, **pre_mdargs)
+    else:
+        raise ValueError('invalid mdmode value.')
     if clip.format.color_family == YUV:
         smd = mergeuv(smd, clip)
     if origdep != 16:
