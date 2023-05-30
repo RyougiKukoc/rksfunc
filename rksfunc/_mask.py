@@ -11,7 +11,7 @@ def scanny(clip: VideoNode) -> VideoNode:
     """
     from vapoursynth import GRAY16
     
-    c8 = yer(c16.fmtc.bitdepth(bits=8))
+    c8 = yer(clip.fmtc.bitdepth(bits=8))
     TC = core.tcanny.TCanny
     masks = TC(c8, 0.8, op=2, mode=1).std.Expr("x 7 < 0 65535 ?", GRAY16)
     maskb = TC(c8, 1.3, t_h=6.5, op=2, planes=0)
