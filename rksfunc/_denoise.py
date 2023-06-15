@@ -2,16 +2,17 @@ from vapoursynth import core, VideoNode
 from ._resample import *
 
 
-def dpirsmd(
+def dpirmdg(
     clip: VideoNode, 
-    dpargs: dict = {}, 
-    limargs: dict = {}, 
-    checkmode: bool = False, 
-    plane_qtg: bool = False, 
-    grain_qtg: bool = True, 
+    dpir_args: dict = {}, 
+    limit_args: dict = {}, 
+    mdg_args: dict = {},
+    plane_qtg: bool = True, 
+    grain_qtg: bool = False, 
     prot_dark: bool = False,
     prot_lthr: int = 8000,  # Y value under prot_lthr (in 16 bit) will be considered as dark scene
     prot_hthr: int = 12000,  # A tanh buffer will be created to smooth between prot_lthr and prot_hthr
+    check: bool = False,  # return y_dp, y_lm, mdg instead
 ) -> VideoNode:
     from vapoursynth import YUV, GRAY
     from vsmlrt import DPIR, DPIRModel, Backend
@@ -26,21 +27,25 @@ def dpirsmd(
     is_yuv = clip.format.color_family == YUV
     y = yer(clip) if is_yuv else clip
     
-    qtg_args = dict(Preset='Fast', InputType=1, Sharpness=0, SourceMatch=3)
-    dp_preargs = dict(strength=10, backend=Backend.TRT(fp16=True))
-    dp_preargs.update(dpargs)
+    qtg_args = dict(InputType=1, Sharpness=0, SourceMatch=3)
+    dpir_preargs = dict(strength=10, backend=Backend.TRT(fp16=True, num_streams=2))
+    dpir_preargs.update(dpir_args)
+    limit_preargs = dict(thr=3, elast=2)
+    limit_preargs.update(limit_args)
+    mdg_preargs = dict(refine=True, DCT=6, blksize=32)
+    mdg_preargs.update(mdg_args)
+    
+    # DPIR & Limit
     y_qt = QTGMC(y, **qtg_args)
     dpi = depth(y_qt if plane_qtg else y, 32)
-    y_dp = depth(DPIR(dpi, model=DPIRModel.drunet_gray, **dp_preargs), 16)
-    lim_preargs = dict(thr=3, elast=2)
-    lim_preargs.update(limargs)
-    y_lm = LimitFilter(y, y_dp, **lim_preargs)
+    y_dp = depth(DPIR(dpi, model=DPIRModel.drunet_gray, **dpir_preargs), 16)
+    y_lm = LimitFilter(y, y_dp, **limit_preargs)
     
     # MDegrain
     dif = core.std.MakeDiff(y, y_dp)
     dif_lm = core.std.MakeDiff(y_lm, y_dp)
     dif_lm = QTGMC(dif_lm, **qtg_args) if grain_qtg else dif_lm
-    dif_md = MCTemporalDenoise(dif, p=dif_lm, refine=True, DCT=6, blksize=32, limit=0)
+    dif_md = MCTemporalDenoise(dif, p=dif_lm, limit=0, **mdg_preargs)
     mdg_l = core.std.MergeDiff(y_dp, dif_md)
     
     # protect dark scene
@@ -59,10 +64,33 @@ def dpirsmd(
     
     mdg = mergeuv(mdg, clip) if is_yuv else mdg
     mdg = depth(mdg, origdep)
-    if checkmode:
+    if check:
         return y_dp, y_lm, mdg
     else:
         return mdg
+    
+
+def dpirsmd(
+    clip: VideoNode, 
+    dpargs: dict = {}, 
+    limargs: dict = {}, 
+    checkmode: bool = False, 
+    plane_qtg: bool = False, 
+    grain_qtg: bool = True, 
+    prot_dark: bool = False,
+    prot_lthr: int = 8000,  # Y value under prot_lthr (in 16 bit) will be considered as dark scene
+    prot_hthr: int = 12000,  # A tanh buffer will be created to smooth between prot_lthr and prot_hthr
+) -> VideoNode:
+    return dpirmdg(
+        clip, 
+        dpir_args=dpargs, 
+        limit_args=limargs,
+        plane_qtg=plane_qtg, 
+        grain_qtg=grain_qtg, 
+        prot_dark=prot_dark, 
+        prot_lthr=prot_lthr, 
+        prot_hthr=prot_hthr,
+        check=checkmode)
     
     
 def w2xtrt(
