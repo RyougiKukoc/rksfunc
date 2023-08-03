@@ -115,15 +115,17 @@ def AliceDeband(clip: VideoNode) -> VideoNode:
 
 
 def taawrap(cyuv: VideoNode, ay: int, auv: int, cmask: VideoNode = None, rpmode: int = 13, 
-            taa_args: dict = {}) -> VideoNode:
+            taa_args: dict = {}, nocmask: bool = False) -> VideoNode:
     from vsTAAmbk import TAAmbk
     
     preargs = dict(aatype=ay, aatypeu=auv, aatypev=auv, opencl=True)
     preargs.update(taa_args)
     aa = TAAmbk(cyuv, **preargs)
+    aa = core.rgvs.Repair(aa, cyuv, rpmode)
+    if nocmask:
+        return aa;
     if cmask is None:
         nw, nh = cyuv.width * 3 // 4, cyuv.height * 3 // 4
         cmask = rescaley(cyuv, nw, nh, 'bicubic', 1, 0, linemode=False, maskmode=1)
     aa = core.std.MaskedMerge(aa, cyuv, cmask)
-    aa = core.rgvs.Repair(aa, cyuv, rpmode)
     return aa
