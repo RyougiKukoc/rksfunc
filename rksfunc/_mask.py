@@ -1,5 +1,6 @@
 from vapoursynth import core, VideoNode
 from functools import partial
+from typing import Callable
 from ._resample import *
 
 
@@ -28,7 +29,7 @@ rscaamask = partial(rescaley, maskmode=1)
 def gamma_mask(
     clip: VideoNode, 
     gamma: float = .7, 
-    mask_method: function = None,
+    mask_method: Callable = None,
     dtcargs: dict = {}, 
     btcargs: dict = {}, 
 ) -> VideoNode:
