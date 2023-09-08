@@ -25,15 +25,25 @@ insane_deband_mask = scanny
 rscaamask = partial(rescaley, maskmode=1)
 
 
-def gamma_mask(clip: VideoNode, gamma: float = .7, dtcargs: dict = {}, btcargs: dict = {}) -> VideoNode:
+def gamma_mask(
+    clip: VideoNode, 
+    gamma: float = .7, 
+    mask_method: function = None,
+    dtcargs: dict = {}, 
+    btcargs: dict = {}, 
+) -> VideoNode:
     TC = core.tcanny.TCanny
-    dargs = dict(sigma=2, sigma_v=2, t_h=4, op=2)
-    dargs.update(dtcargs)
-    bargs = dict(sigma=2, sigma_v=2, t_h=3, op=2)
-    bargs.update(btcargs)
     y = yer(clip)
     g = gammarize(y, gamma)
-    _d_bmask = TC(g, **dargs)
-    _b_bmask = TC(y, **bargs)
-    return core.std.Expr([_b_bmask, _d_bmask], 'x y max').std.Maximum().std.Maximum() \
+    if mask_method is not None:
+        _d_mask = mask_method(g)
+        _b_mask = mask_method(y)
+    else:
+        dargs = dict(sigma=2, sigma_v=2, t_h=4, op=2)
+        dargs.update(dtcargs)
+        bargs = dict(sigma=2, sigma_v=2, t_h=3, op=2)
+        bargs.update(btcargs)
+        _d_mask = TC(g, **dargs)
+        _b_mask = TC(y, **bargs)
+    return core.std.Expr([_b_mask, _d_mask], 'x y max').std.Maximum().std.Maximum() \
         .std.Minimum().std.Inflate().std.Inflate()
