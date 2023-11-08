@@ -50,16 +50,15 @@ def gamma_mask(
         .std.Minimum().std.Inflate().std.Inflate()
 
 
-def db_mask_per_plane(clip: VideoNode, thr: int = 6400) -> VideoNode:
-    from kagefunc import retinex_edgemask as rtx
-    
-    return rtx(clip).std.Binarize(thr).std.Maximum().std.Inflate()
-
-
-def get_db_mask(clip: vs.VideoNode, thr: int = 6400) -> vs.VideoNode:
+def mask_per_plane(clip: VideoNode, mask_method: Callable, plane: str = 'YUV') -> VideoNode:
     from vsutil import split
+    from vapoursynth import YUV444P16, RGB48
     
-    c444 = uvsr(clip, quality=False)
-    masker = partial(db_mask_per_plane, thr=thr)
-    y, u, v = map(masker, split(c444))
-    return core.std.Expr([y, u, v], 'x y max z max')
+    assert plane in ['Y', 'YUV', 'RGB']
+    if plane == 'Y':
+        return mask_method(gety(clip))
+    elif plane == 'YUV':
+        clip = clip.resize.Bicubic(format=YUV444P16, matrix=1)
+    elif plane == 'RGB':
+        clip = clip.resize.Bicubic(format=RGB48, matrix_in=1)
+    return core.std.Expr(map(mask_method, split(clip)), 'x y max z max')
