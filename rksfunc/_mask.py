@@ -48,3 +48,18 @@ def gamma_mask(
         _b_mask = TC(y, **bargs)
     return core.std.Expr([_b_mask, _d_mask], 'x y max').std.Maximum().std.Maximum() \
         .std.Minimum().std.Inflate().std.Inflate()
+
+
+def db_mask_per_plane(clip: VideoNode, thr: int = 6400) -> VideoNode:
+    from kagefunc import retinex_edgemask as rtx
+    
+    return rtx(clip).std.Binarize(thr).std.Maximum().std.Inflate()
+
+
+def get_db_mask(clip: vs.VideoNode, thr: int = 6400) -> vs.VideoNode:
+    from vsutil import split
+    
+    c444 = uvsr(clip, quality=False)
+    masker = partial(db_mask_per_plane, thr=thr)
+    y, u, v = map(masker, split(c444))
+    return core.std.Expr([y, u, v], 'x y max z max')
