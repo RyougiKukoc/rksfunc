@@ -61,4 +61,4 @@ def mask_per_plane(clip: VideoNode, mask_method: Callable, plane: str = 'YUV') -
         clip = clip.resize.Bicubic(format=YUV444P16, matrix=1)
     elif plane == 'RGB':
         clip = clip.resize.Bicubic(format=RGB48, matrix_in=1)
-    return core.std.Expr(map(mask_method, split(clip)), 'x y max z max')
+    return core.std.Expr(list(map(mask_method, split(clip))), 'x y max z max')
