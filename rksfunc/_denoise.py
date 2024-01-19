@@ -157,7 +157,7 @@ def tempostab(clip: VideoNode, mdargs: dict = {}, mdmode=1) -> VideoNode:
 
 def medium_vfinal(c420p16: VideoNode, s1=2.5, r1=1, bs1=3, br1=12, pn1=2, pr1=8, \
     s2=2, r2=0, bs2=4, br2=8, pn2=2, pr2=6, ref=None, dftsigma=4, dfttbsize=1, \
-    bm3d="bm3dcuda_rtc", fast=True) -> VideoNode:
+    bm3d="bm3dcuda_rtc", fast=True, chroma=True) -> VideoNode:
     from vapoursynth import YUV444PS
     from vsutil import split, join
     from importlib import import_module
@@ -190,7 +190,7 @@ def medium_vfinal(c420p16: VideoNode, s1=2.5, r1=1, bs1=3, br1=12, pn1=2, pr1=8,
     refhalf_444 = join([ryhalf, refu_f, refv_f])
     srchalf_opp = rgb2opp(torgbs(srchalf_444))
     refhalf_opp = rgb2opp(torgbs(refhalf_444))
-    vfinal_half = B2(srchalf_opp, refhalf_opp, s2, bs2, br2, r2, pn2, pr2, fast=fast)
+    vfinal_half = B2(srchalf_opp, refhalf_opp, s2, bs2, br2, r2, pn2, pr2, fast=fast, chroma=chroma)
     vfinal_half = opp2rgb(vfinal_half).resize.Spline36(format=YUV444PS, matrix=1)
     _, vfinal_u, vfinal_v = split(vfinal_half)
     vfinal = join([vfinal_y, vfinal_u, vfinal_v])
@@ -198,7 +198,7 @@ def medium_vfinal(c420p16: VideoNode, s1=2.5, r1=1, bs1=3, br1=12, pn1=2, pr1=8,
 
 
 def light_vfinal(c420p16: VideoNode, s1=1.2, r1=1, bs1=3, br1=12, pn1=2, pr1=8, ds1=0.5, \
-    s2=2, r2=0, bs2=4, br2=8, pn2=2, pr2=6, ds2=1, bm3d="bm3dcuda_rtc", fast=True) -> VideoNode:
+    s2=2, r2=0, bs2=4, br2=8, pn2=2, pr2=6, ds2=1, bm3d="bm3dcuda_rtc", fast=True, chroma=True) -> VideoNode:
     from vapoursynth import YUV444PS
     from vsutil import split, join
     
@@ -216,8 +216,8 @@ def light_vfinal(c420p16: VideoNode, s1=1.2, r1=1, bs1=3, br1=12, pn1=2, pr1=8, 
     vyhalf = vfinal_y.resize.Spline36(hw, hh, src_left=-0.5)
     srchalf_444 = join([vyhalf, srcu_f, srcv_f])
     srchalf_opp = rgb2opp(torgbs(srchalf_444))
-    vbasic_half = B2(srchalf_opp, srchalf_opp, s2 + ds2, bs2, br2, r2, pn2, pr2, fast=fast)
-    vfinal_half = B2(srchalf_opp, vbasic_half, s2, bs2, br2, r2, pn2, pr2, fast=fast)
+    vbasic_half = B2(srchalf_opp, srchalf_opp, s2 + ds2, bs2, br2, r2, pn2, pr2, fast=fast, chroma=chroma)
+    vfinal_half = B2(srchalf_opp, vbasic_half, s2, bs2, br2, r2, pn2, pr2, fast=fast, chroma=chroma)
     vfinal_half = opp2rgb(vfinal_half).resize.Spline36(format=YUV444PS, matrix=1)
     _, vfinal_u, vfinal_v = split(vfinal_half)
     vfinal = join([vfinal_y, vfinal_u, vfinal_v])
