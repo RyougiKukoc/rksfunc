@@ -124,7 +124,7 @@ def w2xtrt(
         return w2x
 
 
-def tempostab(clip: VideoNode, mdargs: dict = {}, mdmode=1) -> VideoNode:
+def tempostab(clip: VideoNode, mdargs: dict = {}, mdmode=2) -> VideoNode:
     from vapoursynth import YUV, GRAY, Error
     from havsfunc import SMDegrain, QTGMC, MCTemporalDenoise
     
