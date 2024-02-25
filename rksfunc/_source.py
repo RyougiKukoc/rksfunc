@@ -22,14 +22,9 @@ def sourcer(fn: str = None, mode: int = 1) -> VideoNode:
         if not hasattr(core, "dgdecodenv"):
             core.std.LoadPlugin(sys.prefix + '\\x26x\\DGDecodeNV.dll')
         try:
-            src = core.dgdecodenv.DGSource(dgi, fulldepth=True)
+            src = core.dgdecodenv.DGSource(dgi)
         except Error:
-            os.remove(dgi)
-            os.environ['Path'] = os.environ['Path'] + ';' + sys.prefix + '\\x26x'
-            cmd = f'DGIndexNV.exe -i "{fn}" -o "{dgi}" -h'
-            p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.STDOUT)
-            ret = p.communicate()[0]
-            src = core.dgdecodenv.DGSource(dgi, fulldepth=True)
+            raise Error(f'Remove {dgi} and try again')
     else:
         raise ValueError("mode must be 1 or 2.")
     return core.std.SetFrameProps(src, Name="src")
