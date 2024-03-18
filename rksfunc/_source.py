@@ -30,9 +30,10 @@ def sourcer(fn: str = None, mode: int = 1) -> VideoNode:
     return core.std.SetFrameProps(src, Name=os.path.basename(fn))
 
 
-def genqp(clip: VideoNode, qpfile_fp: str = None):
+def genqp(qpfile_fp: str = None, clip: VideoNode = None, force_align: bool = False):
     if qpfile_fp is None:
         import os
+        assert clip is not None
         qpfile_fp = os.path.splitext(clip.get_frame(0).props['Name']) + '.qpfile'
     with open(qpfile, "r") as f:
         qpstr = f.readlines()
@@ -40,10 +41,12 @@ def genqp(clip: VideoNode, qpfile_fp: str = None):
     qpstr = [i if i.endswith("\n") else i + "\n" for i in qpstr]
     qpstr = [i[:-3] for i in qpstr]  # remove K\n
     qp = [int(i) for i in qpstr]
-    if qp[0] != 0:
-        qp = [0] + qp
-    if qp[-1] != clip.num_frames - 1:
-        qp = qp + [clip.num_frames - 1]
+    if force_align:
+        assert clip is not None
+        if qp[0] != 0:
+            qp = [0] + qp
+        if qp[-1] != clip.num_frames - 1:
+            qp = qp + [clip.num_frames - 1]
     return qp
 
 
