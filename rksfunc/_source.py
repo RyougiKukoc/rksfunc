@@ -2,8 +2,8 @@ from vapoursynth import core, VideoNode, Error
 
 
 def sourcer(fn: str = None, mode: int = 1) -> VideoNode:
+    import os
     if fn is None:
-        import os
         for tfn in os.listdir():
             if os.path.isfile(tfn):
                 if os.path.splitext(tfn)[-1] in ['.m2ts', '.hevc', '.264', '.avc', '.mkv', '.mp4']:
@@ -24,10 +24,27 @@ def sourcer(fn: str = None, mode: int = 1) -> VideoNode:
         try:
             src = core.dgdecodenv.DGSource(dgi)
         except Error:
-            raise Error(f'Remove {dgi} and try again')
+            raise Error(f'Remove {dgi} then try again')
     else:
         raise ValueError("mode must be 1 or 2.")
-    return core.std.SetFrameProps(src, Name="src")
+    return core.std.SetFrameProps(src, Name=os.path.basename(fn))
+
+
+def genqp(clip: VideoNode, qpfile_fp: str = None):
+    if qpfile_fp is None:
+        import os
+        qpfile_fp = os.path.splitext(clip.get_frame(0).props['Name']) + '.qpfile'
+    with open(qpfile, "r") as f:
+        qpstr = f.readlines()
+    qpstr = [i for i in qpstr if i != "\n"]  # delete blank line
+    qpstr = [i if i.endswith("\n") else i + "\n" for i in qpstr]
+    qpstr = [i[:-3] for i in qpstr]  # remove K\n
+    qp = [int(i) for i in qpstr]
+    if qp[0] != 0:
+        qp = [0] + qp
+    if qp[-1] != clip.num_frames - 1:
+        qp = qp + [clip.num_frames - 1]
+    return qp
 
 
 def ivtcqtg(c8: VideoNode, withdaa: bool = True, opencl: bool = True) -> VideoNode:
