@@ -15,10 +15,8 @@ def sourcer(fn: str = None, mode: int = 1) -> VideoNode:
         import sys, os, subprocess as sp
         dgi = fn + '.dgi'
         if not os.path.exists(dgi):
-            os.environ['Path'] = os.environ['Path'] + ';' + sys.prefix + '\\x26x'
-            cmd = f'DGIndexNV.exe -i "{fn}" -o "{dgi}" -h'
-            p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.STDOUT)
-            ret = p.communicate()[0]
+            cmd = ['DGIndexNV', '-i', fn, '-o', dgi, '-h']
+            _ = sp.run(cmd)
         if not hasattr(core, "dgdecodenv"):
             core.std.LoadPlugin(sys.prefix + '\\x26x\\DGDecodeNV.dll')
         try:
