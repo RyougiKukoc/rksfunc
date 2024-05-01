@@ -32,7 +32,7 @@ def genqp(qpfile_fp: str = None, clip: VideoNode = None, force_align: bool = Fal
     if qpfile_fp is None:
         import os
         assert clip is not None
-        qpfile_fp = os.path.splitext(clip.get_frame(0).props['Name']) + '.qpfile'
+        qpfile_fp = os.path.splitext(clip.get_frame(0).props['Name'])[0] + '.qpfile'
     with open(qpfile_fp, "r") as f:
         qpstr = f.readlines()
     qpstr = [i for i in qpstr if i != "\n"]  # delete blank line
