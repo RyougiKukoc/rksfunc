@@ -24,8 +24,10 @@ def sourcer(fn: str = None, mode: int = 1) -> VideoNode:
             src = core.dgdecodenv.DGSource(dgi)
         except Error:
             raise Error(f'Remove {dgi} then try again')
+    elif mode == 3:
+        src = core.bs.VideoSource(fn)
     else:
-        raise ValueError("mode must be 1 or 2.")
+        raise ValueError("mode must be in [1, 2, 3].")
     return core.std.SetFrameProps(src, Name=os.path.basename(fn))
 
 
