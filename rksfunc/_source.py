@@ -14,11 +14,12 @@ def sourcer(fn: str = None, mode: int = 1) -> VideoNode:
     elif mode == 2:
         import sys, os, subprocess as sp
         dgi = fn + '.dgi'
-        if not os.path.exists(dgi):
-            cmd = ['DGIndexNV', '-i', fn, '-o', dgi, '-h']
-            _ = sp.run(cmd)
+        cmd = ['DGIndexNV', '-i', fn, '-o', dgi, '-h']
         if not hasattr(core, "dgdecodenv"):
-            core.std.LoadPlugin(sys.prefix + '\\x26x\\DGDecodeNV.dll')
+            core.std.LoadPlugin(os.path.join(sys.prefix, 'x26x', 'DGDecodeNV.dll'))
+            cmd[0] = os.path.join(sys.prefix, 'x26x', 'DGIndexNV')
+        if not os.path.exists(dgi):
+            _ = sp.run(cmd)
         try:
             src = core.dgdecodenv.DGSource(dgi)
         except Error:
