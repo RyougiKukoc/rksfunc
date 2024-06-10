@@ -56,9 +56,9 @@ def mask_per_plane(clip: VideoNode, mask_method: Callable, plane: str = 'YUV') -
     
     assert plane in ['Y', 'YUV', 'RGB']
     if plane == 'Y':
-        return mask_method(gety(clip))
+        return mask_method(yer(clip))
     elif plane == 'YUV':
-        clip = clip.resize.Bicubic(format=YUV444P16, matrix=1)
+        clip = uvsr(clip)
     elif plane == 'RGB':
         clip = clip.resize.Bicubic(format=RGB48, matrix_in=1)
     return core.std.Expr(list(map(mask_method, split(clip))), 'x y max z max')

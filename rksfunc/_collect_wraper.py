@@ -100,7 +100,7 @@ def AliceDeband(clip: VideoNode) -> VideoNode:
     maskg = iterate(maskg, core.std.Minimum, 2)
     maskd = gety(kill.tcanny.TCanny(0.6, t_h=7, planes=0, op=2))
     maskl = gety(kill.tcanny.TCanny(0.7, t_h=8, planes=0, op=2))
-    srcy8 = Depth(gety(clip), 8)
+    srcy8 = gety(clip).fmtc.bitdepth(bits=8)
     mask1 = core.std.Expr([maskd, maskl, srcy8], "z 28 < 65535 z 64 < x y ? ?")
     mask1 = iterate(mask1.std.Inflate(), core.std.Maximum, 3)
     mask1 = mask1.std.Inflate().std.Minimum()

@@ -55,12 +55,11 @@ def ivtcqtg(c8: VideoNode, withdaa: bool = True, opencl: bool = True) -> VideoNo
     from havsfunc import QTGMC
     from yvsfunc import daa_mod
     from mvsfunc import FilterCombed
-    from ._resample import depth
     
     field_match = c8.vivtc.VFM(order=1, mode=3, cthresh=10)
     deint = QTGMC(c8, "fast", TFF=True, FPSDivisor=2, opencl=opencl)
-    ivtc = FilterCombed(field_match, deint).vivtc.VDecimate().std.SetFieldBased(0)
-    return daa_mod(depth(ivtc, 16), opencl=opencl) if withdaa else depth(ivtc, 16)
+    ivtc = FilterCombed(field_match, deint).vivtc.VDecimate().std.SetFieldBased(0).fmtc.bitdepth(bits=16)
+    return daa_mod(ivtc, opencl=opencl) if withdaa else ivtc
 
 
 def ivtcdrb(
@@ -72,15 +71,14 @@ def ivtcdrb(
     opencl: bool = True
 ) -> VideoNode:
     from yvsfunc import daa_mod
-    from ._resample import depth
     
     if clip.format.bits_per_sample != 8:
-        clip = depth(clip, 8)
+        clip = clip.fmtc.bitdepth(bits=8)
     ivtc_filt = clip.tcomb.TComb(tcombmode)
     if bifrost:
         ivtc_filt = ivtc_filt.bifrost.Bifrost(interlaced=True)
     if rainbowsmooth:
         from RainbowSmooth import RainbowSmooth
         ivtc_filt = RainbowSmooth(ivtc_filt)
-    ivtc16 = depth(ivtc_filt.vivtc.VFM(order, cthresh=10).vivtc.VDecimate(), 16)
+    ivtc16 = ivtc_filt.vivtc.VFM(order, cthresh=10).vivtc.VDecimate().fmtc.bitdepth(bits=16)
     return daa_mod(ivtc16, opencl=opencl)

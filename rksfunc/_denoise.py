@@ -23,7 +23,7 @@ def dpirmdg(
     assert clip.format.color_family in [YUV, GRAY]
     origdep = clip.format.bits_per_sample
     if origdep != 16:
-        clip = depth(clip, 16)
+        clip = clip.fmtc.bitdepth(bits=16)
     is_yuv = clip.format.color_family == YUV
     y = yer(clip) if is_yuv else clip
     
@@ -37,8 +37,8 @@ def dpirmdg(
     
     # DPIR & Limit
     y_qt = QTGMC(y, **qtg_args)
-    dpi = depth(y_qt if plane_qtg else y, 32)
-    y_dp = depth(DPIR(dpi, model=DPIRModel.drunet_gray, **dpir_preargs), 16)
+    dpi = (y_qt if plane_qtg else y).fmtc.bitdepth(bits=32)
+    y_dp = DPIR(dpi, model=DPIRModel.drunet_gray, **dpir_preargs).fmtc.bitdepth(bits=16)
     y_lm = LimitFilter(y, y_dp, **limit_preargs)
     
     # MDegrain
@@ -63,7 +63,7 @@ def dpirmdg(
         mdg = mdg_l
     
     mdg = mergeuv(mdg, clip) if is_yuv else mdg
-    mdg = depth(mdg, origdep)
+    mdg = mdg.fmtc.bitdepth(bits=origdep)
     if check:
         return y_dp, y_lm, mdg
     else:
@@ -132,7 +132,7 @@ def tempostab(clip: VideoNode, mdargs: dict = {}, mdmode=2) -> VideoNode:
         raise Error("rksfunc.tempostab: only YUV and GRAY format are supported.")
     origdep = clip.format.bits_per_sample
     if origdep != 16:
-        clip = Depth(clip, 16)
+        clip = clip.fmtc.bitdepth(bits=16)
     if clip.format.color_family == YUV:
         clip_y = gety(clip)
     else:
@@ -151,7 +151,7 @@ def tempostab(clip: VideoNode, mdargs: dict = {}, mdmode=2) -> VideoNode:
     if clip.format.color_family == YUV:
         smd = mergeuv(smd, clip)
     if origdep != 16:
-        smd = Depth(smd, origdep)
+        smd = smd.fmtc.bitdepth(bits=origdep)
     return smd
 
 
@@ -181,8 +181,8 @@ def medium_vfinal(c420p16: VideoNode, s1=2.5, r1=1, bs1=3, br1=12, pn1=2, pr1=8,
 
     hw = c420p16.width / 2  # half width
     hh = c420p16.height / 2  # half height
-    srcy_f, srcu_f, srcv_f = split(Depth(c420p16, 32))
-    refy_f, refu_f, refv_f = split(Depth(ref, 32))
+    srcy_f, srcu_f, srcv_f = split(c420p16.fmtc.bitdepth(bits=32))
+    refy_f, refu_f, refv_f = split(ref.fmtc.bitdepth(bits=32))
     vfinal_y = B2(srcy_f, refy_f, s1, bs1, br1, r1, pn1, pr1, fast=fast)
     vyhalf = vfinal_y.resize.Spline36(hw, hh, src_left=-0.5)
     ryhalf = refy_f.resize.Spline36(hw, hh, src_left=-0.5)
@@ -194,7 +194,7 @@ def medium_vfinal(c420p16: VideoNode, s1=2.5, r1=1, bs1=3, br1=12, pn1=2, pr1=8,
     vfinal_half = opp2rgb(vfinal_half).resize.Spline36(format=YUV444PS, matrix=1)
     _, vfinal_u, vfinal_v = split(vfinal_half)
     vfinal = join([vfinal_y, vfinal_u, vfinal_v])
-    return Depth(vfinal, 16)
+    return vfinal.fmtc.bitdepth(bits=16)
 
 
 def light_vfinal(c420p16: VideoNode, s1=1.2, r1=1, bs1=3, br1=12, pn1=2, pr1=8, ds1=0.5, \
@@ -210,7 +210,7 @@ def light_vfinal(c420p16: VideoNode, s1=1.2, r1=1, bs1=3, br1=12, pn1=2, pr1=8, 
         B2 = core.bm3dcpu.BM3Dv2
     hw = c420p16.width / 2  # half width
     hh = c420p16.height / 2  # half height
-    srcy_f, srcu_f, srcv_f = split(Depth(c420p16, 32))
+    srcy_f, srcu_f, srcv_f = split(c420p16.fmtc.bitdepth(bits=32))
     vbasic_y = B2(srcy_f, srcy_f, s1 + ds1, bs1, br1, r1, pn1, pr1, fast=fast)
     vfinal_y = B2(srcy_f, vbasic_y, s1, bs1, br1, r1, pn1, pr1, fast=fast)
     vyhalf = vfinal_y.resize.Spline36(hw, hh, src_left=-0.5)
@@ -221,7 +221,7 @@ def light_vfinal(c420p16: VideoNode, s1=1.2, r1=1, bs1=3, br1=12, pn1=2, pr1=8, 
     vfinal_half = opp2rgb(vfinal_half).resize.Spline36(format=YUV444PS, matrix=1)
     _, vfinal_u, vfinal_v = split(vfinal_half)
     vfinal = join([vfinal_y, vfinal_u, vfinal_v])
-    return Depth(vfinal, 16)
+    return vfinal.fmtc.bitdepth(bits=16)
 
 
 def denoise2(clip: VideoNode, level=0.5) -> VideoNode:
@@ -261,17 +261,17 @@ def defilmgrain(clip: VideoNode, s1=16, s2=3, s3=3, g=1.5, dark=10000) -> VideoN
         raise Error("rksfunc.defilmgrain: only YUV and GRAY format are supported.")
     origdep = clip.format.bits_per_sample
     if origdep != 16:
-        clip = Depth(clip, 16)
+        clip = clip.fmtc.bitdepth(bits=16)
     if clip.format.color_family == YUV:
-        clip_y = gety(clip)
+        clip_y = yer(clip)
     else:
         clip_y = clip
-    clip_yf = Depth(clip_y, 32)
+    clip_yf = clip_y.fmtc.bitdepth(bits=32)
     basic_f = clip_yf.bm3dcuda_rtc.BM3Dv2(clip_yf, s1, 3, 12, 0, 2, 6)
     final_f = clip_yf.bm3dcuda_rtc.BM3Dv2(basic_f, s1, 3, 12, 0, 2, 6)
     line_f = clip_yf.bm3dcuda_rtc.BM3Dv2(final_f, s2, 3, 15, 0, 2, 8)
-    line = Depth(line_f, 16)
-    clearplane = DFTTest(Depth(final_f, 16), tbsize=1)
+    line = line_f.fmtc.bitdepth(bits=16)
+    clearplane = DFTTest(final_f.fmtc.bitdepth(bits=16), tbsize=1)
     emask = gamma_curve(clearplane, g).tcanny.TCanny(1, mode=0, op=3)
     emask = iterate(emask, core.std.Maximum, 2)
     emask = iterate(emask, core.std.Inflate, 2)
@@ -279,13 +279,13 @@ def defilmgrain(clip: VideoNode, s1=16, s2=3, s3=3, g=1.5, dark=10000) -> VideoN
     tref = QTGMC(clip_y, InputType=1, Sharpness=0, SourceMatch=3)
     ttp = clip_y.ttmpsm.TTempSmooth(3, 5, 3, 3, pfclip=tref)
     ttp = core.std.MaskedMerge(ttp, line, emask)
-    ttp_f = Depth(ttp, 32)
+    ttp_f = ttp.fmtc.bitdepth(bits=32)
     vfinal_f = ttp_f.bm3dcuda_rtc.BM3Dv2(clip_yf, s3, 3, 12, 1, 2, 8)
-    vfinal = Depth(vfinal_f, 16)
+    vfinal = vfinal_f.fmtc.bitdepth(bits=16)
     if clip.format.color_family == YUV:
         vfinal = mergeuv(vfinal, clip)
     if origdep != 16:
-        vfinal = Depth(vfinal, origdep)
+        vfinal = vfinal.fmtc.bitdepth(bits=origdep)
     return vfinal
 
 

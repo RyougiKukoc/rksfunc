@@ -2,25 +2,6 @@ from vapoursynth import core, VideoNode
 from typing import Union, Tuple
 
 
-def depth(clip: VideoNode, bits, range=None, range_in=None) -> VideoNode:
-    # copy from fvsfunc
-    from vapoursynth import INTEGER, FLOAT
-    
-    rangedict = {'limited': 0, 'full': 1}
-    if isinstance(range, str):
-        range = rangedict[range]
-    if isinstance(range_in, str):
-        range_in = rangedict[range_in]
-    if (clip.format.bits_per_sample, range_in) == (bits, range):
-        return clip
-    out_format = core.query_video_format(clip.format.color_family, INTEGER if bits < 32 else FLOAT, bits, \
-        clip.format.subsampling_w, subsampling_h=clip.format.subsampling_h)
-    return clip.resize.Bicubic(format=out_format, dither_type='error_diffusion', range=range, range_in=range_in)
-
-
-Depth = depth
-
-
 def yer(clip: VideoNode) -> VideoNode:
     from vapoursynth import GRAY
     
