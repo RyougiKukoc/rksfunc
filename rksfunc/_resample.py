@@ -34,7 +34,7 @@ def uvsr(c420p16: VideoNode, quality=True, opencl=True) -> VideoNode:
 
     if quality:
         if c420p16.format.name.startswith("YUV420"):
-            c420p16 = Depth(c420p16, 16)
+            c420p16 = c420p16.fmtc.bitdepth(bits=16)
         else:
             raise ValueError('Invalid clip format.')
         y, u, v = core.std.SplitPlanes(c420p16)
