@@ -2,6 +2,10 @@ from vapoursynth import core, VideoNode
 from typing import Union, Tuple
 
 
+def Depth(clip: VideoNode, bits) -> VideoNode:
+    return clip.fmtc.bitdepth(bits=bits)
+
+
 def yer(clip: VideoNode) -> VideoNode:
     from vapoursynth import GRAY
     
