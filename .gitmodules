@@ -1,0 +1,3 @@
+[submodule "rksfunc/KrigBilateral"]
+	path = rksfunc/KrigBilateral
+	url = https://gist.github.com/igv/a015fc885d5c22e6891820ad89555637
