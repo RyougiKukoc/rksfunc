@@ -48,6 +48,15 @@ def uvsr(c420p16: VideoNode, quality=True, opencl=True) -> VideoNode:
         return c420p16.resize.Bicubic(format=YUV444P16, dither_type="error_diffusion")
 
 
+def KrigBilateral(c420p16: VideoNode, shader_fp: str = None) -> VideoNode:
+    import os
+    
+    assert c420p16.format.name == 'YUV420P16'
+    if shader_fp is None:
+        shader_fp = os.path.join(os.path.dirname(__file__), 'KrigBilateral', 'KrigBilateral.glsl')
+    return c420p16.placebo.Shader(shader=shader_fp)
+    
+
 def torgbs(c444: VideoNode, m: str = "709") -> VideoNode:
     """
     YUV444 -> RGBS
