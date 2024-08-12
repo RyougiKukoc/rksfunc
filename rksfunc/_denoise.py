@@ -190,6 +190,39 @@ def BM3DWrapper(
     return vfinal.fmtc.bitdepth(bits=16)
 
 
+def light_vfinal(
+    c420p16, s1=1.2, r1=1, bs1=3, br1=12, pn1=2, pr1=8, ds1=0.5, 
+    s2=2, r2=0, bs2=4, br2=8, pn2=2, pr2=6, ds2=1, bm3d="bm3dcuda_rtc", fast=True, chroma=True
+) -> VideoNode:
+    return BM3DWrapper(
+        c420p16, eval(f"core.{bm3d}"), fast, chroma,
+        s1, r1, bs1, br1, pn1, pr1, ds1,
+        s2, r2, bs2, br2, pn2, pr2, ds2,
+    )
+
+
+def medium_vfinal(
+    c420p16, s1=2.5, r1=1, bs1=3, br1=12, pn1=2, pr1=8,
+    s2=2, r2=0, bs2=4, br2=8, pn2=2, pr2=6, ref=None, dftsigma=4, dfttbsize=1,
+    bm3d="bm3dcuda_rtc", fast=True, chroma=True
+) -> VideoNode:
+    if ref is None:
+        from havsfunc import EdgeCleaner
+        from importlib import import_module
+        try:
+            dfttest2 = import_module('dfttest2')
+            DFTTest = dfttest2.DFTTest
+        except ModuleNotFoundError:
+            DFTTest = core.dfttest.DFTTest
+        ref = DFTTest(c420p16, sigma=dftsigma, tbsize=dfttbsize, planes=[0, 1, 2])
+        ref = EdgeCleaner(ref)
+    return BM3DRef(
+        c420p16, ref, eval(f"core.{bm3d}"), fast, chroma,
+        s1, r1, bs1, br1, pn1, pr1,
+        s2, r2, bs2, br2, pn2, pr2,
+    )
+    
+    
 def DeFilmGrain(clip: VideoNode, s1=16, s2=3, s3=3, g=1.5, dark=10000) -> VideoNode:
     from vapoursynth import YUV, GRAY, Error
     from havsfunc import QTGMC

@@ -160,7 +160,7 @@ def Gammarize(clip: VideoNode, gamma, tvrange=False) -> VideoNode:
     
     if clip.format.name.startswith("YUV"):
         is_yuv = True
-        y = gety(clip)
+        y = yer(clip)
     elif clip.format.name.startswith("Gray"):
         is_yuv = False
         y = clip
@@ -185,7 +185,7 @@ def dvdto720(clip: VideoNode, width: int = 960) -> VideoNode:
     return nnr2(c709, 2, width, 720, nsize=4, nns=4, qual=2, pscrn=1)
 
 
-def RescaleY(
+def RescaleLuma(
     clip: VideoNode,
     w: int, 
     h: int, 
