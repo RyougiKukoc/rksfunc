@@ -1,8 +1,7 @@
 from vapoursynth import core, VideoNode
-from ._resample import *
 
 
-def dpirmdg(
+def DPIRMDegrain(
     clip: VideoNode, 
     dpir_args: dict = {}, 
     limit_args: dict = {}, 
@@ -19,6 +18,7 @@ def dpirmdg(
     from mvsfunc import LimitFilter
     from havsfunc import QTGMC, MCTemporalDenoise
     from math import tanh
+    from ._resample import yer, mergeuv
     
     assert clip.format.color_family in [YUV, GRAY]
     origdep = clip.format.bits_per_sample
@@ -68,30 +68,7 @@ def dpirmdg(
         return y_dp, y_lm, mdg
     else:
         return mdg
-    
 
-def dpirsmd(
-    clip: VideoNode, 
-    dpargs: dict = {}, 
-    limargs: dict = {}, 
-    checkmode: bool = False, 
-    plane_qtg: bool = False, 
-    grain_qtg: bool = True, 
-    prot_dark: bool = False,
-    prot_lthr: int = 8000,  # Y value under prot_lthr (in 16 bit) will be considered as dark scene
-    prot_hthr: int = 12000,  # A tanh buffer will be created to smooth between prot_lthr and prot_hthr
-) -> VideoNode:
-    return dpirmdg(
-        clip, 
-        dpir_args=dpargs, 
-        limit_args=limargs,
-        plane_qtg=plane_qtg, 
-        grain_qtg=grain_qtg, 
-        prot_dark=prot_dark, 
-        prot_lthr=prot_lthr, 
-        prot_hthr=prot_hthr,
-        check=checkmode)
-    
     
 def w2xtrt(
     clip: VideoNode, 
@@ -101,6 +78,7 @@ def w2xtrt(
     w2xargs: dict = {}, 
     **args) -> VideoNode:
     from vsmlrt import Waifu2x, Waifu2xModel, Backend
+    from ._resample import torgbs, uvsr
 
     if clip.format.name == "RGBS":
         crgbs = clip
@@ -124,9 +102,10 @@ def w2xtrt(
         return w2x
 
 
-def tempostab(clip: VideoNode, mdargs: dict = {}, mdmode=2) -> VideoNode:
+def TempoStab(clip: VideoNode, mdargs: dict = {}, mdmode=2) -> VideoNode:
     from vapoursynth import YUV, GRAY, Error
     from havsfunc import SMDegrain, QTGMC, MCTemporalDenoise
+    from ._resample import yer, mergeuv
     
     if clip.format.color_family != YUV and clip.format.color_family != GRAY:
         raise Error("rksfunc.tempostab: only YUV and GRAY format are supported.")
@@ -134,7 +113,7 @@ def tempostab(clip: VideoNode, mdargs: dict = {}, mdmode=2) -> VideoNode:
     if origdep != 16:
         clip = clip.fmtc.bitdepth(bits=16)
     if clip.format.color_family == YUV:
-        clip_y = gety(clip)
+        clip_y = yer(clip)
     else:
         clip_y = clip
     tref = QTGMC(clip_y, InputType=1, Sharpness=0, SourceMatch=3, opencl=True)
@@ -155,99 +134,68 @@ def tempostab(clip: VideoNode, mdargs: dict = {}, mdmode=2) -> VideoNode:
     return smd
 
 
-def medium_vfinal(c420p16: VideoNode, s1=2.5, r1=1, bs1=3, br1=12, pn1=2, pr1=8, \
-    s2=2, r2=0, bs2=4, br2=8, pn2=2, pr2=6, ref=None, dftsigma=4, dfttbsize=1, \
-    bm3d="bm3dcuda_rtc", fast=True, chroma=True) -> VideoNode:
+def BM3DRef(
+    c420p16: VideoNode, ref: VideoNode,
+    bm3d=core.bm3dcuda_rtc, fast=True, chroma=True,
+    sy=2, ry=1, bsy=4, bry=8, pny=2, pry=8,
+    sc=2, rc=0, bsc=4, brc=8, pnc=2, prc=6, 
+) -> VideoNode:
     from vapoursynth import YUV444PS
     from vsutil import split, join
-    from importlib import import_module
+    from ._resample import rgb2opp, opp2rgb, torgbs
     
-    if bm3d == "bm3dcuda":
-        B2 = core.bm3dcuda.BM3Dv2
-    elif bm3d == "bm3dcuda_rtc":
-        B2 = core.bm3dcuda_rtc.BM3Dv2
-    else:
-        B2 = core.bm3dcpu.BM3Dv2
-    
-    if ref is None:
-        from havsfunc import EdgeCleaner
-        try:
-            dfttest2 = import_module('dfttest2')
-            DFTTest = dfttest2.DFTTest
-        except ModuleNotFoundError:
-            DFTTest = core.dfttest.DFTTest
-        ref = DFTTest(c420p16, sigma=dftsigma, tbsize=dfttbsize, planes=[0, 1, 2])
-        ref = EdgeCleaner(ref)
-
-    hw = c420p16.width / 2  # half width
-    hh = c420p16.height / 2  # half height
+    Bv2 = bm3d.BM3Dv2
+    hw = c420p16.width // 2  # half width
+    hh = c420p16.height // 2  # half height
     srcy_f, srcu_f, srcv_f = split(c420p16.fmtc.bitdepth(bits=32))
     refy_f, refu_f, refv_f = split(ref.fmtc.bitdepth(bits=32))
-    vfinal_y = B2(srcy_f, refy_f, s1, bs1, br1, r1, pn1, pr1, fast=fast)
+    vfinal_y = Bv2(srcy_f, refy_f, sy, bsy, bry, ry, pny, pry, fast=fast)
     vyhalf = vfinal_y.resize.Spline36(hw, hh, src_left=-0.5)
     ryhalf = refy_f.resize.Spline36(hw, hh, src_left=-0.5)
     srchalf_444 = join([vyhalf, srcu_f, srcv_f])
     refhalf_444 = join([ryhalf, refu_f, refv_f])
     srchalf_opp = rgb2opp(torgbs(srchalf_444))
     refhalf_opp = rgb2opp(torgbs(refhalf_444))
-    vfinal_half = B2(srchalf_opp, refhalf_opp, s2, bs2, br2, r2, pn2, pr2, fast=fast, chroma=chroma)
+    vfinal_half = Bv2(srchalf_opp, refhalf_opp, sc, bsc, brc, rc, pnc, prc, chroma, fast=fast)
     vfinal_half = opp2rgb(vfinal_half).resize.Spline36(format=YUV444PS, matrix=1)
     _, vfinal_u, vfinal_v = split(vfinal_half)
     vfinal = join([vfinal_y, vfinal_u, vfinal_v])
     return vfinal.fmtc.bitdepth(bits=16)
 
 
-def light_vfinal(c420p16: VideoNode, s1=1.2, r1=1, bs1=3, br1=12, pn1=2, pr1=8, ds1=0.5, \
-    s2=2, r2=0, bs2=4, br2=8, pn2=2, pr2=6, ds2=1, bm3d="bm3dcuda_rtc", fast=True, chroma=True) -> VideoNode:
+def BM3DWrapper(
+    c420p16: VideoNode, 
+    bm3d=core.bm3dcuda_rtc, fast=True, chroma=True,
+    sy=1.2, ry=1, bsy=4, bry=8, pny=2, pry=8, dsy=0.6,
+    sc=2.4, rc=0, bsc=4, brc=8, pnc=2, prc=6, dsc=1.2,
+) -> VideoNode:
     from vapoursynth import YUV444PS
     from vsutil import split, join
+    from ._resample import rgb2opp, opp2rgb, torgbs
     
-    if bm3d == "bm3dcuda":
-        B2 = core.bm3dcuda.BM3Dv2
-    elif bm3d == "bm3dcuda_rtc":
-        B2 = core.bm3dcuda_rtc.BM3Dv2
-    else:
-        B2 = core.bm3dcpu.BM3Dv2
-    hw = c420p16.width / 2  # half width
-    hh = c420p16.height / 2  # half height
+    Bv2 = bm3d.BM3Dv2
+    hw = c420p16.width // 2  # half width
+    hh = c420p16.height // 2  # half height
     srcy_f, srcu_f, srcv_f = split(c420p16.fmtc.bitdepth(bits=32))
-    vbasic_y = B2(srcy_f, srcy_f, s1 + ds1, bs1, br1, r1, pn1, pr1, fast=fast)
-    vfinal_y = B2(srcy_f, vbasic_y, s1, bs1, br1, r1, pn1, pr1, fast=fast)
+    vbasic_y = Bv2(srcy_f, srcy_f, sy+dsy, bsy, bry, ry, pny, pry, fast=fast)
+    vfinal_y = Bv2(srcy_f, vbasic_y, sy, bsy, bry, ry, pny, pry, fast=fast)
     vyhalf = vfinal_y.resize.Spline36(hw, hh, src_left=-0.5)
     srchalf_444 = join([vyhalf, srcu_f, srcv_f])
     srchalf_opp = rgb2opp(torgbs(srchalf_444))
-    vbasic_half = B2(srchalf_opp, srchalf_opp, s2 + ds2, bs2, br2, r2, pn2, pr2, fast=fast, chroma=chroma)
-    vfinal_half = B2(srchalf_opp, vbasic_half, s2, bs2, br2, r2, pn2, pr2, fast=fast, chroma=chroma)
+    vbasic_half = Bv2(srchalf_opp, srchalf_opp, sc+dsc, bsc, brc, rc, pnc, prc, chroma, fast=fast)
+    vfinal_half = Bv2(srchalf_opp, vbasic_half, sc, bsc, brc, rc, pnc, prc, chroma, fast=fast)
     vfinal_half = opp2rgb(vfinal_half).resize.Spline36(format=YUV444PS, matrix=1)
     _, vfinal_u, vfinal_v = split(vfinal_half)
     vfinal = join([vfinal_y, vfinal_u, vfinal_v])
     return vfinal.fmtc.bitdepth(bits=16)
 
 
-def denoise2(clip: VideoNode, level=0.5) -> VideoNode:
-    from mvsfunc import LimitFilter
-
-    nr16k = clip.knlm.KNLMeansCL(1, 2, 4, 1.25)
-    nr16b = clip.bilateral.Bilateral(nr16k, level)
-    nr16: VideoNode = LimitFilter(nr16k, nr16b, thr=1, elast=2)
-    nr16_dn1 = nr16.knlm.KNLMeansCL(0, 2, 4, 1.5)
-    nr16_dn2 = nr16_dn1.rgvs.RemoveGrain(20).rgvs.RemoveGrain(17).rgvs.RemoveGrain(4)
-    noise1 = core.std.MakeDiff(nr16_dn1, nr16_dn2)
-    dnoise1 = core.std.MakeDiff(nr16_dn2, clip)
-    noise2 = core.std.MakeDiff(clip, nr16b)
-    return LimitFilter(
-        nr16.std.MergeDiff(noise2).std.MergeDiff(noise1).std.MergeDiff(dnoise1), 
-        nr16, 
-        thr=0.75, 
-        elast=3.0, 
-    )
-
-
-def defilmgrain(clip: VideoNode, s1=16, s2=3, s3=3, g=1.5, dark=10000) -> VideoNode:
+def DeFilmGrain(clip: VideoNode, s1=16, s2=3, s3=3, g=1.5, dark=10000) -> VideoNode:
     from vapoursynth import YUV, GRAY, Error
     from havsfunc import QTGMC
     from vsutil import iterate
     from dfttest2 import DFTTest
+    from ._resample import yer, mergeuv
     
     def gamma_curve(clip_y, gamma) -> VideoNode:
         def lut_y(x):
@@ -289,8 +237,10 @@ def defilmgrain(clip: VideoNode, s1=16, s2=3, s3=3, g=1.5, dark=10000) -> VideoN
     return vfinal
 
 
-def chroma_denoise(clip: VideoNode, sigma=1.2, chroma_sr=False) -> VideoNode:
+def ChromaDenoise(clip: VideoNode, chroma_sr=False, sigma=1.2, bm3d=core.bm3dcuda_rtc) -> VideoNode:
+    from ._resample import uvsr, half444, mergeuv
+    
     c32 = (uvsr(clip) if chroma_sr else half444(clip)).fmtc.bitdepth(bits=32)
     w2x = w2xtrt(c32, 3, ofmt=True)
-    vfn = c32.bm3dcuda_rtc.BM3Dv2(w2x, sigma, 3, 8, 1, 2, 8).fmtc.bitdepth(bits=16)
+    vfn = bm3d.BM3Dv2(c32, w2x, sigma, 3, 8, 1, 2, 8).fmtc.bitdepth(bits=16)
     return mergeuv(clip, vfn)

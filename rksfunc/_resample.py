@@ -12,16 +12,13 @@ def yer(clip: VideoNode) -> VideoNode:
     return clip.std.ShufflePlanes(0, GRAY)
 
 
-gety = yer
-
-
 def mergeuv(clipy: VideoNode, clipuv: VideoNode) -> VideoNode:
     from vapoursynth import YUV
 
     return core.std.ShufflePlanes([clipy, clipuv], [0, 1, 2], YUV)
 
 
-def uvsr(c420p16: VideoNode, mode: Union[int, str] = 0, opencl: bool = True) -> VideoNode:
+def uvsr(c420p16: VideoNode, mode: Union[int, str] = -1, opencl: bool = True) -> VideoNode:
     """
     YUV420P16 -> YUV444P16
     :param c420p16: input VideoNode.
@@ -139,7 +136,7 @@ def opp2rgb(clip: VideoNode, normalize: bool = False) -> VideoNode:
     return rgb
 
 
-def crop420(clip: VideoNode, l=0, r=0, t=0, b=0) -> VideoNode:
+def Crop420(clip: VideoNode, l=0, r=0, t=0, b=0) -> VideoNode:
     from functools import partial
     from vapoursynth import YUV
     
@@ -157,7 +154,7 @@ def crop420(clip: VideoNode, l=0, r=0, t=0, b=0) -> VideoNode:
     return core.std.ShufflePlanes([y, u, v], [0] * 3, YUV)
 
 
-def gammarize(clip: VideoNode, gamma, tvrange=False) -> VideoNode:
+def Gammarize(clip: VideoNode, gamma, tvrange=False) -> VideoNode:
     def scale8(val, depth):
         return val * ((1 << depth) - 1) // 255
     
@@ -188,7 +185,7 @@ def dvdto720(clip: VideoNode, width: int = 960) -> VideoNode:
     return nnr2(c709, 2, width, 720, nsize=4, nns=4, qual=2, pscrn=1)
 
 
-def rescaley(
+def RescaleY(
     clip: VideoNode,
     w: int, 
     h: int, 

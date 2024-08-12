@@ -3,6 +3,9 @@ from vapoursynth import core, VideoNode, Error
 
 def sourcer(fn: str = None, mode: int = 1) -> VideoNode:
     import os
+    import sys
+    import subprocess as sp
+    
     if fn is None:
         for tfn in os.listdir():
             if os.path.isfile(tfn):
@@ -12,7 +15,6 @@ def sourcer(fn: str = None, mode: int = 1) -> VideoNode:
     if mode == 1:
         src = core.lsmas.LWLibavSource(fn)
     elif mode == 2:
-        import sys, os, subprocess as sp
         dgi = fn + '.dgi'
         cmd = ['DGIndexNV', '-i', fn, '-o', dgi, '-h']
         if not hasattr(core, "dgdecodenv"):
@@ -31,7 +33,7 @@ def sourcer(fn: str = None, mode: int = 1) -> VideoNode:
     return core.std.SetFrameProps(src, Name=os.path.basename(fn))
 
 
-def genqp(qpfile_fp: str = None, clip: VideoNode = None, force_align: bool = False):
+def GenQPFile(qpfile_fp: str = None, clip: VideoNode = None, force_align: bool = False):
     if qpfile_fp is None:
         import os
         assert clip is not None
@@ -51,18 +53,7 @@ def genqp(qpfile_fp: str = None, clip: VideoNode = None, force_align: bool = Fal
     return qp
 
 
-def ivtcqtg(c8: VideoNode, withdaa: bool = True, opencl: bool = True) -> VideoNode:
-    from havsfunc import QTGMC
-    from yvsfunc import daa_mod
-    from mvsfunc import FilterCombed
-    
-    field_match = c8.vivtc.VFM(order=1, mode=3, cthresh=10)
-    deint = QTGMC(c8, "fast", TFF=True, FPSDivisor=2, opencl=opencl)
-    ivtc = FilterCombed(field_match, deint).vivtc.VDecimate().std.SetFieldBased(0).fmtc.bitdepth(bits=16)
-    return daa_mod(ivtc, opencl=opencl) if withdaa else ivtc
-
-
-def ivtcdrb(
+def IVTCDeRainbow(
     clip: VideoNode, 
     bifrost: bool = False, 
     rainbowsmooth: bool = False, 

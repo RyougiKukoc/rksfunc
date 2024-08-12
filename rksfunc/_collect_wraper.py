@@ -1,16 +1,14 @@
 from vapoursynth import core, VideoNode
 from typing import Union, Tuple
-from ._resample import *
 
 
-def syn_deband(cyuv16: VideoNode, r1=12, y1=64, uv1=48, r2=21, y2=48, uv2=32, mstr=6000, inflate=2,
+def SynDeband(cyuv16: VideoNode, r1=12, y1=64, uv1=48, r2=21, y2=48, uv2=32, mstr=6000, inflate=2,
                include_mask=False, kill=None, bmask=None) -> Union[VideoNode, Tuple[VideoNode, VideoNode]]:
     from kagefunc import retinex_edgemask as rtx
     from mvsfunc import LimitFilter
 
     if kill is None:
         kill = cyuv16.rgvs.RemoveGrain([20, 11]).rgvs.RemoveGrain([20, 11])
-
     grain = core.std.MakeDiff(cyuv16, kill)
     deband = core.f3kdb.Deband(kill, r1, y1, uv1, uv1, 0, 0, 2, output_depth=16) \
         .f3kdb.Deband(r2, y2, uv2, uv2, 0, 0, 2, output_depth=16)
@@ -27,7 +25,7 @@ def syn_deband(cyuv16: VideoNode, r1=12, y1=64, uv1=48, r2=21, y2=48, uv2=32, ms
         return deband
 
 
-def usm_dering(cyuv16: VideoNode, mat=None, mrad=3, mthr=50,
+def USMDering(cyuv16: VideoNode, mat=None, mrad=3, mthr=50,
                include_mask=False) -> Union[VideoNode, Tuple[VideoNode, VideoNode]]:
     """
     Unsharp mask based dering method. Thanks to Jan: https://skyeysnow.com/forum.php?mod=viewthread&tid=32112.
@@ -89,6 +87,7 @@ def AliceDeband(clip: VideoNode) -> VideoNode:
     from mvsfunc import LimitFilter
     from kagefunc import retinex_edgemask as rtx
     from vsutil import iterate
+    from ._resample import yer
     
     kill = clip.rgvs.RemoveGrain(20).rgvs.RemoveGrain(20)
     noise1 = core.std.MakeDiff(clip, kill, planes=[0, 1, 2])
@@ -98,9 +97,9 @@ def AliceDeband(clip: VideoNode) -> VideoNode:
     noise = LimitFilter(noise3, noise, thr=0.8, brighten_thr=0.8, elast=1.5)
     maskg = rtx(kill).std.Inflate().std.Maximum().std.Inflate().std.Binarize(6000)
     maskg = iterate(maskg, core.std.Minimum, 2)
-    maskd = gety(kill.tcanny.TCanny(0.6, t_h=7, planes=0, op=2))
-    maskl = gety(kill.tcanny.TCanny(0.7, t_h=8, planes=0, op=2))
-    srcy8 = gety(clip).fmtc.bitdepth(bits=8)
+    maskd = yer(kill.tcanny.TCanny(0.6, t_h=7, planes=0, op=2))
+    maskl = yer(kill.tcanny.TCanny(0.7, t_h=8, planes=0, op=2))
+    srcy8 = yer(clip).fmtc.bitdepth(bits=8)
     mask1 = core.std.Expr([maskd, maskl, srcy8], "z 28 < 65535 z 64 < x y ? ?")
     mask1 = iterate(mask1.std.Inflate(), core.std.Maximum, 3)
     mask1 = mask1.std.Inflate().std.Minimum()
@@ -114,9 +113,10 @@ def AliceDeband(clip: VideoNode) -> VideoNode:
     return deband
 
 
-def taawrap(cyuv: VideoNode, ay: int, auv: int, cmask: VideoNode = None, rpmode: int = 13, 
+def TAAWrapper(cyuv: VideoNode, ay: int, auv: int, cmask: VideoNode = None, rpmode: int = 13, 
             taa_args: dict = {}, nocmask: bool = False) -> VideoNode:
     from vsTAAmbk import TAAmbk
+    from ._resample import RescaleLuma
     
     preargs = dict(aatype=ay, aatypeu=auv, aatypev=auv, opencl=True)
     preargs.update(taa_args)
@@ -126,6 +126,6 @@ def taawrap(cyuv: VideoNode, ay: int, auv: int, cmask: VideoNode = None, rpmode:
         return aa;
     if cmask is None:
         nw, nh = cyuv.width * 3 // 4, cyuv.height * 3 // 4
-        cmask = rescaley(cyuv, nw, nh, 'bicubic', 1, 0, linemode=False, maskmode=1)
+        cmask = RescaleLuma(cyuv, nw, nh, 'bicubic', 1, 0, linemode=False, maskmode=1)
     aa = core.std.MaskedMerge(aa, cyuv, cmask)
     return aa

@@ -1,7 +1,5 @@
 from vapoursynth import core, VideoNode
-from functools import partial
 from typing import Callable
-from ._resample import *
 
 
 def scanny(clip: VideoNode) -> VideoNode:
@@ -11,6 +9,7 @@ def scanny(clip: VideoNode) -> VideoNode:
     :return: result of mask.
     """
     from vapoursynth import GRAY16
+    from ._resample import yer
     
     c8 = yer(clip.fmtc.bitdepth(bits=8))
     TC = core.tcanny.TCanny
@@ -21,21 +20,18 @@ def scanny(clip: VideoNode) -> VideoNode:
     return mask.std.Maximum(0).std.Maximum(0).std.Minimum(0).rgvs.RemoveGrain(20)
 
 
-insane_deband_mask = scanny
-
-rscaamask = partial(rescaley, maskmode=1)
-
-
-def gamma_mask(
+def GammaMask(
     clip: VideoNode, 
     gamma: float = .7, 
     mask_method: Callable = None,
     dtcargs: dict = {}, 
     btcargs: dict = {}, 
 ) -> VideoNode:
+    from ._resample import yer, Gammarize
+    
     TC = core.tcanny.TCanny
     y = yer(clip)
-    g = gammarize(y, gamma)
+    g = Gammarize(y, gamma)
     if mask_method is not None:
         _d_mask = mask_method(g)
         _b_mask = mask_method(y)
@@ -50,9 +46,10 @@ def gamma_mask(
         .std.Minimum().std.Inflate().std.Inflate()
 
 
-def mask_per_plane(clip: VideoNode, mask_method: Callable, plane: str = 'YUV') -> VideoNode:
+def MaskPerPlane(clip: VideoNode, mask_method: Callable, plane: str = 'YUV') -> VideoNode:
     from vsutil import split
     from vapoursynth import RGB48
+    from ._resample import yer, uvsr
     
     assert plane in ['Y', 'YUV', 'RGB']
     if plane == 'Y':
