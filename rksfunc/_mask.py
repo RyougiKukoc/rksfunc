@@ -52,7 +52,7 @@ def gamma_mask(
 
 def mask_per_plane(clip: VideoNode, mask_method: Callable, plane: str = 'YUV') -> VideoNode:
     from vsutil import split
-    from vapoursynth import YUV444P16, RGB48
+    from vapoursynth import RGB48
     
     assert plane in ['Y', 'YUV', 'RGB']
     if plane == 'Y':

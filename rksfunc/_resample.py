@@ -21,33 +21,42 @@ def mergeuv(clipy: VideoNode, clipuv: VideoNode) -> VideoNode:
     return core.std.ShufflePlanes([clipy, clipuv], [0, 1, 2], YUV)
 
 
-def uvsr(c420p16: VideoNode, quality=True, opencl=True) -> VideoNode:
+def uvsr(c420p16: VideoNode, mode: Union[int, str] = 0, opencl: bool = True) -> VideoNode:
     """
     YUV420P16 -> YUV444P16
     :param c420p16: input VideoNode.
-    :param quality: set to True using nnedi3 when the quality of source is good, otherwise Bicubic is utilized.
+    :param mode: index or name in ['nnedi3', 'bicubic', 'krigbilateral']
     :param opencl: whether to use nnedi3cl, default znedi3.
     :return: the YUV444P16 form of input.
     """
     from vapoursynth import YUV444P16, YUV
-
-    def chroma_upscale(c: VideoNode) -> VideoNode:
-        NNE = core.nnedi3cl.NNEDI3CL if opencl else core.znedi3.nnedi3
-        d = NNE(c, 0, True).std.Transpose().resize.Bicubic(src_left=0.5)
-        return NNE(d, 1, True).std.Transpose()
-
-    if quality:
-        if c420p16.format.name.startswith("YUV420"):
-            c420p16 = c420p16.fmtc.bitdepth(bits=16)
-        else:
-            raise ValueError('Invalid clip format.')
+    from functools import partial
+    
+    mode_list = ['nnedi3', 'bicubic', 'krigbilateral']
+    if isinstance(mode, int):
+        mode = mode_list[mode]
+    elif isinstance(mode, str):
+        mode = mode.lower()
+    assert mode in mode_list
+    c420p16 = c420p16.fmtc.bitdepth(bits=16)
+    assert c420p16.format.name == 'YUV420P16'
+    if mode == 'nnedi3':
         y, u, v = core.std.SplitPlanes(c420p16)
-        u, v = map(chroma_upscale, [u, v])
+        u, v = map(partial(LeftChroma2x, opencl=opencl), [u, v])
         return core.std.ShufflePlanes([y, u, v], [0] * 3, YUV)
-    else:
-        return c420p16.resize.Bicubic(format=YUV444P16, dither_type="error_diffusion")
+    elif mode == 'bicubic':
+        return c420p16.resize.Bicubic(format=YUV444P16)
+    elif mode == 'krigbilateral':
+        return KrigBilateral(c420p16)
 
 
+def LeftChroma2x(clip: VideoNode, opencl: bool) -> VideoNode:
+    n2x = core.nnedi3cl.NNEDI3CL if opencl else core.znedi3.nnedi3
+    h2x = n2x(clip, field=0, dh=True)
+    w2x = n2x(h2x.std.Transpose().resize.Bicubic(src_left=.5), field=1, dh=True)
+    return w2x.std.Transpose()
+
+    
 def KrigBilateral(c420p16: VideoNode, shader_fp: str = None) -> VideoNode:
     import os
     

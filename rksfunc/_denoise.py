@@ -107,7 +107,7 @@ def w2xtrt(
     elif clip.format.name.startswith("YUV444"):
         crgbs = torgbs(clip)
     elif clip.format.name.startswith("YUV420"):
-        crgbs = torgbs(uvsr(clip, False))
+        crgbs = torgbs(uvsr(clip))
     
     if test:
         w2x = crgbs.w2xnvk.Waifu2x(noise, 1, 2)
