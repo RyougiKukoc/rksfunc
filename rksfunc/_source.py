@@ -33,7 +33,7 @@ def sourcer(fn: str = None, mode: int = 1) -> VideoNode:
     return core.std.SetFrameProps(src, Name=os.path.basename(fn))
 
 
-def GenQPFile(qpfile_fp: str = None, clip: VideoNode = None, force_align: bool = False):
+def GenQPList(qpfile_fp: str = None, clip: VideoNode = None, force_align: bool = False):
     if qpfile_fp is None:
         import os
         assert clip is not None
