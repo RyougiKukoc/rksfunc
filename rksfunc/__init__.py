@@ -20,5 +20,5 @@ dpirmdg = DPIRMDegrain
 tempostab = TempoStab
 chroma_denoise = ChromaDenoise
 defilmgrain = DeFilmGrain
-genqp = GenQPFile
+genqp = GenQPList
 ivtcdrb = IVTCDeRainbow
