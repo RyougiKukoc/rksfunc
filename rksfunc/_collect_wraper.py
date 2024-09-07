@@ -2,22 +2,47 @@ from vapoursynth import core, VideoNode
 from typing import Union, Tuple
 
 
-def SynDeband(cyuv16: VideoNode, r1=12, y1=64, uv1=48, r2=21, y2=48, uv2=32, mstr=6000, inflate=2,
-               include_mask=False, kill=None, bmask=None) -> Union[VideoNode, Tuple[VideoNode, VideoNode]]:
-    from kagefunc import retinex_edgemask as rtx
-    from mvsfunc import LimitFilter
-
+def SynDeband(
+    cyuv16: VideoNode, 
+    r1: int = 12, 
+    y1: int = 64, 
+    uv1: int = 48, 
+    r2: int = 21,
+    y2: int = 48, 
+    uv2: int = 32, 
+    mstr: int = 6000, 
+    inflate: int = 2,
+    include_mask: bool = False, 
+    kill: VideoNode = None, 
+    bmask: VideoNode = None,
+    limit: bool = False,
+    limit_thry: float = 0.6,
+    limit_thrc: float = 0.5,
+    limit_elast: float = 1.2,
+) -> Union[VideoNode, Tuple[VideoNode, VideoNode]]:
     if kill is None:
         kill = cyuv16.rgvs.RemoveGrain([20, 11]).rgvs.RemoveGrain([20, 11])
+    elif not kill:
+        kill = cyuv16
     grain = core.std.MakeDiff(cyuv16, kill)
-    deband = core.f3kdb.Deband(kill, r1, y1, uv1, uv1, 0, 0, 2, output_depth=16) \
-        .f3kdb.Deband(r2, y2, uv2, uv2, 0, 0, 2, output_depth=16)
-    deband = LimitFilter(deband, kill, thr=0.6, brighten_thr=0.6, elast=1.2, thrc=0.5)
+    f3kdb_params = {
+        'grainy': 0,
+        'grainc': 0,
+        'sample_mode': 2,
+        'blur_first': True,
+        'dither_algo': 2,
+    }
+    f3k1 = kill.neo_f3kdb.Deband(r1, y1, uv1, uv1, **f3kdb_params)
+    f3k2 = f3k1.neo_f3kdb.Deband(r2, y2, uv2, uv2, **f3kdb_params)
+    if limit:
+        from mvsfunc import LimitFilter
+        f3k2 = LimitFilter(f3k2, kill, thr=limit_thry, thrc=limit_thrc, elast=limit_elast)
     if bmask is None:
-        bmask = rtx(kill, 1).std.Binarize(mstr)
+        from kagefunc import retinex_edgemask as rtx
+        bmask = rtx(kill).std.Binarize(mstr)
         for _ in range(inflate):
             bmask = bmask.std.Inflate()
-    deband = core.std.MaskedMerge(deband, kill, bmask)
+    deband = core.std.MaskedMerge(f3k2, kill, bmask)
     deband = core.std.MergeDiff(deband, grain)
     if include_mask:
         return deband, bmask
