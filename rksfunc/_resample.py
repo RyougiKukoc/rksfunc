@@ -85,11 +85,11 @@ def to420p16(crgbs: VideoNode, m: int = 1, quality=True) -> VideoNode:
     """
     from vapoursynth import YUV420P16
 
+    d = {'format': YUV420P16, 'matrix': m, 'dither_type': 'ordered'}
     if quality:
-        return crgbs.resize.Spline36(format=YUV420P16, matrix=m, dither_type="error_diffusion")
+        return crgbs.resize.Spline36(**d)
     else:
-        return crgbs.resize.Bicubic(format=YUV420P16, matrix=m, dither_type="error_diffusion", \
-            filter_param_a_uv=0, filter_param_b_uv=0.5)
+        return crgbs.resize.Bicubic(filter_param_a_uv=0, filter_param_b_uv=0.5, **d)
 
 
 def to444p16(crgbs: VideoNode, m: int = 1) -> VideoNode:
@@ -102,7 +102,7 @@ def to444p16(crgbs: VideoNode, m: int = 1) -> VideoNode:
     """
     from vapoursynth import YUV444P16
 
-    return crgbs.resize.Spline36(format=YUV444P16, matrix=m, dither_type="error_diffusion")
+    return crgbs.resize.Spline36(format=YUV444P16, matrix=m, dither_type="ordered")
 
 
 def rgb2opp(clip: VideoNode, normalize: bool = False) -> VideoNode:
@@ -220,7 +220,7 @@ def RescaleLuma(
     upsizer = "nnedi3cl" if opencl else "znedi3"
     
     descale = Resize(y, w, h, kernel=kernel, a1=b, a2=c, taps=taps, invks=True)
-    rescale = nnr2(descale, rf, ow, oh, upsizer=upsizer, nsize=4, nns=4, qual=1, pscrn=2)
+    rescale = nnr2(descale, rf, ow, oh, upsizer=upsizer, nsize=4, nns=4, qual=2)
     upscale = Resize(descale, ow, oh, kernel=kernel, a1=b, a2=c, taps=taps)
     dmask = core.std.Expr([y, upscale], 'x y - abs')
     dmask = iterate(dmask, core.std.Maximum, num_maximum)
