@@ -148,7 +148,7 @@ def TAAWrapper(cyuv: VideoNode, ay: int, auv: int, cmask: VideoNode = None, rpmo
     aa = TAAmbk(cyuv, **preargs)
     aa = core.rgvs.Repair(aa, cyuv, rpmode)
     if nocmask:
-        return aa;
+        return aa
     if cmask is None:
         nw, nh = cyuv.width * 3 // 4, cyuv.height * 3 // 4
         cmask = RescaleLuma(cyuv, nw, nh, 'bicubic', 1, 0, linemode=False, maskmode=1)
