@@ -1,5 +1,5 @@
 from vapoursynth import core, VideoNode
-from typing import Union, Tuple
+from typing import Union, Tuple, Callable
 
 
 def Depth(clip: VideoNode, bits) -> VideoNode:
@@ -148,15 +148,16 @@ def RescaleLuma(
     w: int, 
     h: int, 
     kernel: str = 'bicubic', 
-    b = None, 
-    c = None, 
-    taps = None, 
+    b: float = None, 
+    c: float = None, 
+    taps: int = None, 
     linemode: bool = True, 
     maskmode: int = 0,  # 0: y_rescale only, 1: mask only, 2: return (y_rescale, mask)
     opencl: bool = True, 
     num_maximum: int = 3, 
     num_inflate: int = 3,
-    thr = 10 
+    thr: int = 10,
+    filter: Callable[[VideoNode], VideoNode] = None,
 ) -> Union[VideoNode, Tuple[VideoNode, VideoNode]]:
     from fvsfunc import Resize
     from nnedi3_rpow2 import nnedi3_rpow2 as nnr2
@@ -178,14 +179,16 @@ def RescaleLuma(
     upsizer = "nnedi3cl" if opencl else "znedi3"
     
     descale = Resize(y, w, h, kernel=kernel, a1=b, a2=c, taps=taps, invks=True)
-    rescale = nnr2(descale, rf, ow, oh, upsizer=upsizer, nsize=4, nns=4, qual=2)
     upscale = Resize(descale, ow, oh, kernel=kernel, a1=b, a2=c, taps=taps)
     dmask = core.std.Expr([y, upscale], 'x y - abs')
     dmask = iterate(dmask, core.std.Maximum, num_maximum)
     dmask = iterate(dmask, core.std.Inflate, num_inflate)
+    if filter is not None:
+        descale = filter(descale)
+    rescale = nnr2(descale, rf, ow, oh, upsizer=upsizer, nsize=4, nns=4, qual=2)
     
     if linemode:
-        emask = rescale.std.Prewitt().std.Expr(f'x {thrh} >= {maxv} x {thrl} <= 0 x ? ?')
+        emask = y.std.Prewitt().std.Expr(f'x {thrh} >= {maxv} x {thrl} <= 0 x ? ?')
         cmask = core.std.Expr([dmask, emask], f'x {thrdes} >= 0 y ?').std.Inflate().std.Deflate()
         if maskmode == 1:
             return cmask
