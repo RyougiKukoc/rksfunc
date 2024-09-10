@@ -61,48 +61,6 @@ def KrigBilateral(c420p16: VideoNode, shader_fp: str = None) -> VideoNode:
     if shader_fp is None:
         shader_fp = os.path.join(os.path.dirname(__file__), 'KrigBilateral', 'KrigBilateral.glsl')
     return c420p16.placebo.Shader(shader=shader_fp)
-    
-
-def torgbs(c444: VideoNode, m: str = "709") -> VideoNode:
-    """
-    YUV444 -> RGBS
-    :param c444: input VideoNode.
-    :param m: the matrix of input, "709" or "601" or so on.
-    :return: the RGBS form of input.
-    """
-    from mvsfunc import ToRGB
-
-    return ToRGB(c444, m, 32, 1)
-
-
-def to420p16(crgbs: VideoNode, m: int = 1, quality=True) -> VideoNode:
-    """
-    RGBS -> YUV420P16
-    :param crgbs: input VideoNode.
-    :param m: the matrix of input, 709(1) or 601(5) or so on.
-    :param quality: set to True using Spline36 when the quality of source is good, otherwise Bicubic is utilized.
-    :return: the YUV420P16 form of input.
-    """
-    from vapoursynth import YUV420P16
-
-    d = {'format': YUV420P16, 'matrix': m, 'dither_type': 'ordered'}
-    if quality:
-        return crgbs.resize.Spline36(**d)
-    else:
-        return crgbs.resize.Bicubic(filter_param_a_uv=0, filter_param_b_uv=0.5, **d)
-
-
-def to444p16(crgbs: VideoNode, m: int = 1) -> VideoNode:
-    """
-    RGBS -> YUV444P16
-    :param crgbs: input VideoNode.
-    :param m: the matrix of input, 709(1) or 601(5) or so on.
-    :param r: the range of input, limited(0) or full(1).
-    :return: the YUV444P16 form of input.
-    """
-    from vapoursynth import YUV444P16
-
-    return crgbs.resize.Spline36(format=YUV444P16, matrix=m, dither_type="ordered")
 
 
 def rgb2opp(clip: VideoNode, normalize: bool = False) -> VideoNode:
