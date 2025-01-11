@@ -65,11 +65,12 @@ def IVTCDeRainbow(
     
     if clip.format.bits_per_sample != 8:
         clip = clip.fmtc.bitdepth(bits=8)
-    ivtc_filt = clip.tcomb.TComb(tcombmode)
+    if tcombmode:
+        clip = clip.tcomb.TComb(tcombmode)
     if bifrost:
-        ivtc_filt = ivtc_filt.bifrost.Bifrost(interlaced=True)
+        clip = clip.bifrost.Bifrost(interlaced=True)
     if rainbowsmooth:
         from RainbowSmooth import RainbowSmooth
-        ivtc_filt = RainbowSmooth(ivtc_filt)
-    ivtc16 = ivtc_filt.vivtc.VFM(order, cthresh=10).vivtc.VDecimate().fmtc.bitdepth(bits=16)
+        clip = RainbowSmooth(clip)
+    ivtc16 = clip.vivtc.VFM(order, cthresh=10).vivtc.VDecimate().fmtc.bitdepth(bits=16)
     return daa_mod(ivtc16, opencl=opencl)
