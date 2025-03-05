@@ -154,3 +154,35 @@ def TAAWrapper(cyuv: VideoNode, ay: int, auv: int, cmask: VideoNode = None, rpmo
         cmask = RescaleLuma(cyuv, nw, nh, 'bicubic', 1, 0, linemode=False, maskmode=1)
     aa = core.std.MaskedMerge(aa, cyuv, cmask)
     return aa
+
+
+def janaitrt(clip: VideoNode, model=None, backend=None) -> VideoNode:
+    from vapoursynth import RGB, GRAYS
+    from vsmlrt import RealESRGAN, RealESRGANModel, BackendV2
+    from ._resample import torgbs, uvsr
+    
+    if clip.format.name.startswith("RGB"):
+        crgbs = clip.fmtc.bitdepth(bits=32)
+    elif clip.format.name.startswith("YUV444"):
+        crgbs = torgbs(clip)
+    elif clip.format.name.startswith("YUV420"):
+        crgbs = torgbs(uvsr(clip))
+    elif clip.format.name.startswith("GRAY"):
+        crgbs = core.std.ShufflePlanes(clip.fmtc.bitdepth(bits=32), [0]*3, RGB).std.SetFrameProps(_Matrix=0)
+    
+    j2x = RealESRGAN(
+        clip=crgbs,
+        model=RealESRGANModel.animejanaiV3_HD_L1 if model is None else model,
+        backend=BackendV2.TRT(fp16=True) if backend is None else backend,
+    )
+    j1x = j2x.resize.Spline36(width=crgbs.width, height=crgbs.height)
+    
+    if clip.format.name.startswith("RGB"):
+        return j1x.fmtc.bitdepth(bits=clip.format.bits_per_sample, dmode=0)
+    elif clip.format.name.startswith("YUV"):
+        return j1x.resize.Spline36(format=clip.format.id, matrix=1, dither_type='ordered')
+    else:
+        r, g, b = core.std.SplitPlanes(j1x)
+        y = core.std.Expr([r, g, b], "x y z + + 3 /", GRAYS)
+        return y.fmtc.bitdepth(bits=clip.format.bits_per_sample, dmode=0)
+    
