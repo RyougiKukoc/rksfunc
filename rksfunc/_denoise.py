@@ -77,27 +77,37 @@ def w2xtrt(
     ofmt: bool = False, 
     w2xargs: dict = {}, 
     **args) -> VideoNode:
-    from vsmlrt import Waifu2x, Waifu2xModel, Backend
+    from vapoursynth import RGB, GRAYS
+    from vsmlrt import Waifu2x, Waifu2xModel, BackendV2
     from ._resample import torgbs, uvsr
 
-    if clip.format.name == "RGBS":
-        crgbs = clip
+    if clip.format.name.startswith("RGB"):
+        crgbs = clip.fmtc.bitdepth(bits=32)
     elif clip.format.name.startswith("YUV444"):
         crgbs = torgbs(clip)
     elif clip.format.name.startswith("YUV420"):
         crgbs = torgbs(uvsr(clip))
+    elif clip.format.name.startswith("GRAY"):
+        crgbs = core.std.ShufflePlanes(clip.fmtc.bitdepth(bits=32), [0]*3, RGB).std.SetFrameProps(_Matrix=0)
     
     if test:
         w2x = crgbs.w2xnvk.Waifu2x(noise, 1, 2)
     else:
-        w2xbe = args.get('w2b', Backend.TRT(fp16=True))
+        w2xbe = args.get('w2b', BackendV2.TRT(fp16=True))
         preargs = {'backend': w2xbe}
         preargs.update(w2xargs)
         w2x = Waifu2x(crgbs, noise, 1, model=Waifu2xModel.cunet, **preargs)
     ofmt = args.get('o420p16', False) or ofmt  # history problem
     
     if ofmt:
-        return w2x.resize.Spline36(format=clip.format.id, matrix=1, dither_type='error_diffusion')
+        if clip.format.name.startswith("RGB"):
+            return w2x.fmtc.bitdepth(bits=clip.format.bits_per_sample, dmode=0)
+        elif clip.format.name.startswith("YUV"):
+            return w2x.resize.Spline36(format=clip.format.id, matrix=1, dither_type='ordered')
+        else:
+            r, g, b = core.std.SplitPlanes(w2x)
+            y = core.std.Expr([r, g, b], "x y z + + 3 /", GRAYS)
+            return y.fmtc.bitdepth(bits=clip.format.bits_per_sample, dmode=0)
     else:
         return w2x
 
