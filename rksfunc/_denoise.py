@@ -87,7 +87,7 @@ def w2xtrt(
         crgbs = torgbs(clip)
     elif clip.format.name.startswith("YUV420"):
         crgbs = torgbs(uvsr(clip))
-    elif clip.format.name.startswith("GRAY"):
+    elif clip.format.name.startswith("Gray"):
         crgbs = core.std.ShufflePlanes(clip.fmtc.bitdepth(bits=32), [0]*3, RGB).std.SetFrameProps(_Matrix=0)
     
     if test:
