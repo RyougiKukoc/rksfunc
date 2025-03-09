@@ -3,6 +3,7 @@ from ._mask import *
 from ._denoise import *
 from ._source import *
 from ._collect_wraper import *
+from ._descale_test import *
 from functools import partial
 
 gety = yer
