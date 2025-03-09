@@ -287,3 +287,15 @@ def ChromaDenoise(clip: VideoNode, chroma_sr=False, sigma=1.2, bm3d=core.bm3dcud
     w2x = w2xtrt(c32, 3, ofmt=True)
     vfn = bm3d.BM3Dv2(c32, w2x, sigma, 3, 8, 1, 2, 8).fmtc.bitdepth(bits=16)
     return mergeuv(clip, vfn)
+
+def AdaptiveBM3D(clip: VideoNode) -> VideoNode:
+    from ._mask import GammaMask
+    from ._resample import mergeuv
+    
+    degrain_l = BM3DWrapper(clip)
+    degrain_d = clip.bilateral.Bilateral(degrain_l, 0.5)
+    amask = degrain_l.rgvs.RemoveGrain([20, 11]).rgvs.RemoveGrain([20, 11])
+    amask = amask.std.PlaneStats().adg.Mask(12)
+    degrain = core.std.MaskedMerge(degrain_l, degrain_d, amask, first_plane=True)
+    clear_edge = core.std.MaskedMerge(degrain, degrain_l, GammaMask(degrain_l).std.Maximum())
+    return mergeuv(clear_edge, degrain_l)
