@@ -77,7 +77,7 @@ def DescaleKernelTester(clip: vs.VideoNode, descale_args: dict, cache_lim: int =
             dsc = y32.descale.Debicubic(**descale_args, b=b/base, c=c/base)
             rsc = dsc.resize.Bicubic(**upscale_args, filter_param_a=b/base, filter_param_b=c/base)
             dif = core.std.Expr([y32, rsc], "x y - abs").std.PlaneStats() \
-                .std.SetFrameProps(_Kernel=f"DescaleKernelTest_Bicubic_{b}p{base}_{c}p{base}")
+                .std.SetFrameProps(_Kernel=f"DescaleKernelTest_Bicubic_b{b}p{base}_c{c}p{base}")
             cacher.add(dif)
     
     # Lanczos
