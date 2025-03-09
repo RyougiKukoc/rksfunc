@@ -175,7 +175,7 @@ def janaitrt(clip: VideoNode, model=None, backend=None) -> VideoNode:
         model=RealESRGANModel.animejanaiV3_HD_L1 if model is None else model,
         backend=BackendV2.TRT(fp16=True) if backend is None else backend,
     )
-    j1x = j2x.resize.Spline36(width=crgbs.width, height=crgbs.height)
+    j1x = j2x.resize.Spline36(width=crgbs.width, height=crgbs.height, range_in=0, range=0)
     
     if clip.format.name.startswith("RGB"):
         return j1x.fmtc.bitdepth(bits=clip.format.bits_per_sample, dmode=0)
