@@ -26,6 +26,8 @@ def GammaMask(
     mask_method: Callable = None,
     dtcargs: dict = {}, 
     btcargs: dict = {}, 
+    num_maximum: int = 2,
+    num_minimum: int = 1,
 ) -> VideoNode:
     from ._resample import yer, Gammarize
     
@@ -42,8 +44,12 @@ def GammaMask(
         bargs.update(btcargs)
         _d_mask = TC(g, **dargs)
         _b_mask = TC(y, **bargs)
-    return core.std.Expr([_b_mask, _d_mask], 'x y max').std.Maximum().std.Maximum() \
-        .std.Minimum().std.Inflate().std.Inflate()
+    mask = core.std.Expr([_b_mask, _d_mask], 'x y max')
+    for _ in range(num_maximum):
+        mask = mask.std.Maximum()
+    for _ in range(num_minimum):
+        mask = mask.std.Minimum()
+    return mask.std.Inflate().std.Inflate()
 
 
 def MaskPerPlane(clip: VideoNode, mask_method: Callable, plane: str = 'YUV') -> VideoNode:
