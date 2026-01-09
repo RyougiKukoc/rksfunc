@@ -153,8 +153,8 @@ def dvdto720(clip: VideoNode, width: int = 960) -> VideoNode:
 
 def RescaleLuma(
     clip: VideoNode,
-    w: int, 
-    h: int, 
+    w: int = None, 
+    h: int = None, 
     kernel: str = 'bicubic', 
     b: float = None, 
     c: float = None, 
@@ -166,9 +166,9 @@ def RescaleLuma(
     num_inflate: int = 3,
     thr: int = 10,
     filter: Callable[[VideoNode], VideoNode] = None,
+    dargs: dict = None
 ) -> Union[VideoNode, Tuple[VideoNode, VideoNode]]:
-    from fvsfunc import Resize
-    from nnedi3_rpow2 import nnedi3_rpow2 as nnr2
+    from nnedi3_resample import nnedi3_resample
     from vsutil import iterate
     from vapoursynth import YUV, GRAY
     
@@ -176,24 +176,34 @@ def RescaleLuma(
     is_yuv = clip.format.color_family == YUV
     y = yer(clip) if is_yuv else clip
     
+    if dargs is None:
+        from getfnative import descale_cropping_args
+        if h is None:
+            assert w is not None
+            h = w * y.height // y.width
+        if w is None:
+            w = h * y.width // y.height
+        dargs = descale_cropping_args(y, h, h, w)
+    
+    assert dargs['height'] * 2 >= y.height
+    cargs = dict(src_left=dargs['src_left'], src_width=dargs['src_width'],
+                 src_height=dargs['src_height'], src_top=dargs['src_top'])
     ow, oh = y.width, y.height
     maxv = (1 << 16) - 1
     thrl = 4 * maxv // 0xFF
     thrh = 24 * maxv // 0xFF
     thrdes = thr * maxv // 0xFF
-    rf = 2
-    while w * rf < ow:
-        rf *= 2
-    upsizer = "nnedi3cl" if opencl else "znedi3"
-    
-    descale = Resize(y, w, h, kernel=kernel, a1=b, a2=c, taps=taps, invks=True)
-    upscale = Resize(descale, ow, oh, kernel=kernel, a1=b, a2=c, taps=taps)
+    descale = Descale(y, dargs, kernel=kernel, b=b, c=c, taps=taps)
+    upscale = Upscale(descale, ow, oh, cargs, kernel=kernel, b=b, c=c, taps=taps)
+
     dmask = core.std.Expr([y, upscale], 'x y - abs')
     dmask = iterate(dmask, core.std.Maximum, num_maximum)
     dmask = iterate(dmask, core.std.Inflate, num_inflate)
     if filter is not None:
         descale = filter(descale)
-    rescale = nnr2(descale, rf, ow, oh, upsizer=upsizer, nsize=4, nns=4, qual=2)
+    
+    upsizer = "nnedi3cl" if opencl else "znedi3"
+    rescale = nnedi3_resample(descale, ow, oh, mode=upsizer, **cargs)
     
     if linemode:
         emask = y.std.Prewitt().std.Expr(f'x {thrh} >= {maxv} x {thrl} <= 0 x ? ?')
@@ -215,3 +225,60 @@ def half444(c420: VideoNode) -> VideoNode:
     y = yer(c420)
     y_half = y.resize.Spline36(y.width // 2, y.height // 2, src_left=-.5)
     return mergeuv(y_half, c420)
+
+
+def Descale(
+    clip: VideoNode, 
+    descale_cropping_args: dict, 
+    kernel: str = 'bicubic',
+    b: float = 1/3,
+    c: float = 1/3,
+    taps: int = 4,
+) -> VideoNode:
+    from functools import partial
+    match kernel.lower():
+        case 'bicubic':
+            descaler = partial(core.descale.Debicubic, b=b, c=c)
+        case 'bilinear':
+            descaler = core.descale.Debilinear
+        case 'lanczos':
+            descaler = partial(core.descale.Delanczos, taps=taps)
+        case 'spline16':
+            descaler = core.descale.Despline16
+        case 'spline36':
+            descaler = core.descale.Despline36
+        case 'spline64':
+            descaler = core.descale.Despline64
+        case _:
+            raise ValueError(f"{kernel = }")
+    return descaler(clip.fmtc.bitdepth(bits=32), **descale_cropping_args
+                    ).fmtc.bitdepth(bits=clip.format.bits_per_sample)
+
+
+def Upscale(
+    clip: VideoNode,
+    width: int = None,
+    height: int = None,
+    cropping_args: dict = {},
+    kernel: str = 'bicubic',
+    b: float = 1/3,
+    c: float = 1/3,
+    taps: int = 4,
+) -> VideoNode:
+    from functools import partial
+    match kernel.lower():
+        case 'bicubic':
+            upscaler = partial(core.resize.Bicubic, filter_param_a=b, filter_param_b=c)
+        case 'bilinear':
+            upscaler = core.resize.Bilinear
+        case 'lanczos':
+            upscaler = partial(core.resize.Lanczos, filter_param_a=taps)
+        case 'spline16':
+            upscaler = core.resize.Spline16
+        case 'spline36':
+            upscaler = core.resize.Spline36
+        case 'spline64':
+            upscaler = core.resize.Spline64
+        case _:
+            raise ValueError(f"{kernel = }")
+    return upscaler(clip, width, height, **cropping_args)
