@@ -126,7 +126,7 @@ def TempoStab(clip: VideoNode, mdargs: dict = {}, mdmode=2) -> VideoNode:
         clip_y = yer(clip)
     else:
         clip_y = clip
-    tref = QTGMC(clip_y, InputType=1, Sharpness=0, SourceMatch=3, opencl=True)
+    tref = QTGMC(clip_y, InputType=1, Sharpness=0, SourceMatch=3)
     if mdmode == 1:
         pre_mdargs = {'RefineMotion': True, 'dct': 6, 'blksize': 32, 'prefilter': tref}
         pre_mdargs.update(mdargs)
