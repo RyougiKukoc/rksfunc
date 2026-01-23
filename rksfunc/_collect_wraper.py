@@ -1,5 +1,5 @@
 from vapoursynth import core, VideoNode
-from typing import Union, Tuple
+from typing import Union, Tuple, Callable, Literal
 
 
 def SynDeband(
@@ -46,6 +46,45 @@ def SynDeband(
     deband = core.std.MergeDiff(deband, grain)
     if include_mask:
         return deband, bmask
+    else:
+        return deband
+
+
+def SynDebandV2(
+    clip: VideoNode,
+    preset: Literal['low', 'high', 'mid'] = 'low',
+    banding_mask: VideoNode = None,
+    debander: Callable[[VideoNode], VideoNode] = None,
+    killer: Callable[[VideoNode], VideoNode] = None,
+    ampo: float = 1.0,
+) -> Union[VideoNode, Tuple[VideoNode, VideoNode]]:
+    if banding_mask is None:
+        from vsdeband import deband_detail_mask
+        banding_mask = deband_detail_mask(clip).std.Maximum().std.Maximum().std.Deflate()
+    kill = clip if killer is None else killer(clip)
+    if debander is None:
+        deband = kill.fmtc.bitdepth(bits=32)
+        _d = deband.vszip.Deband
+        match preset:
+            case 'low':
+                deband = _d(range=12, thr=0.6, grain=0, sample_mode=7, thr1=1.9, thr2=1.2, angle_boost=1.9)
+                deband = _d(range=22, thr=0.5, grain=0, sample_mode=7, thr1=1.7, thr2=1.1, angle_boost=1.8)
+            case 'mid':
+                deband = _d(range=12, thr=1.8, grain=0, sample_mode=7, thr1=4.0, thr2=2.0, angle_boost=1.6)
+                deband = _d(range=22, thr=1.6, grain=0, sample_mode=7, thr1=3.6, thr2=1.8, angle_boost=1.5)
+            case 'high':
+                deband = _d(range=12, thr=3.4, grain=0, sample_mode=6, thr1=6.8, thr2=3.3)
+                deband = _d(range=12, thr=3.2, grain=0, sample_mode=6, thr1=6.4, thr2=3.1)
+            case _:
+                raise ValueError(f"{preset = } is not available.")
+        origin = kill.format.bits_per_sample
+        if origin < 32:
+            deband = deband.fmtc.bitdepth(bits=origin, dmode=0, ampn=0.1, ampo=ampo)
+    else:
+        deband = debander(kill)
+    deband = core.std.MaskedMerge(deband, kill, banding_mask)
+    if killer is not None:
+        return deband.std.MergeFullDiff(clip.std.MakeFullDiff(kill))
     else:
         return deband
 
