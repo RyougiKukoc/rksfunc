@@ -146,7 +146,7 @@ def TempoStab(clip: VideoNode, mdargs: dict = {}, mdmode=2) -> VideoNode:
 
 def BM3DRef(
     c420p16: VideoNode, ref: VideoNode,
-    bm3d=core.bm3dcuda_rtc, fast=True, chroma=True,
+    bm3d=core.bm3dcuda_rtc, chroma=True,
     sy=2, ry=1, bsy=4, bry=8, pny=2, pry=8,
     sc=2, rc=0, bsc=4, brc=8, pnc=2, prc=6, 
 ) -> VideoNode:
@@ -159,14 +159,14 @@ def BM3DRef(
     hh = c420p16.height // 2  # half height
     srcy_f, srcu_f, srcv_f = split(c420p16.fmtc.bitdepth(bits=32))
     refy_f, refu_f, refv_f = split(ref.fmtc.bitdepth(bits=32))
-    vfinal_y = Bv2(srcy_f, refy_f, sy, bsy, bry, ry, pny, pry, fast=fast)
+    vfinal_y = Bv2(srcy_f, refy_f, sy, bsy, bry, ry, pny, pry)
     vyhalf = vfinal_y.resize.Spline36(hw, hh, src_left=-0.5)
     ryhalf = refy_f.resize.Spline36(hw, hh, src_left=-0.5)
     srchalf_444 = join([vyhalf, srcu_f, srcv_f])
     refhalf_444 = join([ryhalf, refu_f, refv_f])
     srchalf_opp = rgb2opp(torgbs(srchalf_444))
     refhalf_opp = rgb2opp(torgbs(refhalf_444))
-    vfinal_half = Bv2(srchalf_opp, refhalf_opp, sc, bsc, brc, rc, pnc, prc, chroma, fast=fast)
+    vfinal_half = Bv2(srchalf_opp, refhalf_opp, sc, bsc, brc, rc, pnc, prc, chroma)
     vfinal_half = opp2rgb(vfinal_half).resize.Spline36(format=YUV444PS, matrix=1)
     _, vfinal_u, vfinal_v = split(vfinal_half)
     vfinal = join([vfinal_y, vfinal_u, vfinal_v])
@@ -175,7 +175,7 @@ def BM3DRef(
 
 def BM3DWrapper(
     c420p16: VideoNode, 
-    bm3d=core.bm3dcuda_rtc, fast=True, chroma=True,
+    bm3d=core.bm3dcuda_rtc, chroma=True,
     sy=1.2, ry=1, bsy=4, bry=8, pny=2, pry=8, dsy=0.6,
     sc=2.4, rc=0, bsc=4, brc=8, pnc=2, prc=6, dsc=1.2,
 ) -> VideoNode:
@@ -187,13 +187,13 @@ def BM3DWrapper(
     hw = c420p16.width // 2  # half width
     hh = c420p16.height // 2  # half height
     srcy_f, srcu_f, srcv_f = split(c420p16.fmtc.bitdepth(bits=32))
-    vbasic_y = Bv2(srcy_f, srcy_f, sy+dsy, bsy, bry, ry, pny, pry, fast=fast)
-    vfinal_y = Bv2(srcy_f, vbasic_y, sy, bsy, bry, ry, pny, pry, fast=fast)
+    vbasic_y = Bv2(srcy_f, srcy_f, sy+dsy, bsy, bry, ry, pny, pry)
+    vfinal_y = Bv2(srcy_f, vbasic_y, sy, bsy, bry, ry, pny, pry)
     vyhalf = vfinal_y.resize.Spline36(hw, hh, src_left=-0.5)
     srchalf_444 = join([vyhalf, srcu_f, srcv_f])
     srchalf_opp = rgb2opp(torgbs(srchalf_444))
-    vbasic_half = Bv2(srchalf_opp, srchalf_opp, sc+dsc, bsc, brc, rc, pnc, prc, chroma, fast=fast)
-    vfinal_half = Bv2(srchalf_opp, vbasic_half, sc, bsc, brc, rc, pnc, prc, chroma, fast=fast)
+    vbasic_half = Bv2(srchalf_opp, srchalf_opp, sc+dsc, bsc, brc, rc, pnc, prc, chroma)
+    vfinal_half = Bv2(srchalf_opp, vbasic_half, sc, bsc, brc, rc, pnc, prc, chroma)
     vfinal_half = opp2rgb(vfinal_half).resize.Spline36(format=YUV444PS, matrix=1)
     _, vfinal_u, vfinal_v = split(vfinal_half)
     vfinal = join([vfinal_y, vfinal_u, vfinal_v])
@@ -205,7 +205,7 @@ def light_vfinal(
     s2=2, r2=0, bs2=4, br2=8, pn2=2, pr2=6, ds2=1, bm3d="bm3dcuda_rtc", fast=True, chroma=True
 ) -> VideoNode:
     return BM3DWrapper(
-        c420p16, eval(f"core.{bm3d}"), fast, chroma,
+        c420p16, eval(f"core.{bm3d}"), chroma,
         s1, r1, bs1, br1, pn1, pr1, ds1,
         s2, r2, bs2, br2, pn2, pr2, ds2,
     )
@@ -227,7 +227,7 @@ def medium_vfinal(
         ref = DFTTest(c420p16, sigma=dftsigma, tbsize=dfttbsize, planes=[0, 1, 2])
         ref = EdgeCleaner(ref)
     return BM3DRef(
-        c420p16, ref, eval(f"core.{bm3d}"), fast, chroma,
+        c420p16, ref, eval(f"core.{bm3d}"), chroma,
         s1, r1, bs1, br1, pn1, pr1,
         s2, r2, bs2, br2, pn2, pr2,
     )
