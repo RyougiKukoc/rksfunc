@@ -286,9 +286,11 @@ def DeFilmGrain(clip: VideoNode, s1=16, s2=3, s3=3, g=1.5, dark=10000) -> VideoN
     return vfinal
 
 
-def ChromaDenoise(clip: VideoNode, chroma_sr=False, sigma=1.2, bm3d=core.bm3dcuda_rtc) -> VideoNode:
+def ChromaDenoise(clip: VideoNode, chroma_sr=False, sigma=1.2, bm3d="bm3dcuda_rtc") -> VideoNode:
     from ._resample import uvsr, half444, mergeuv
     
+    if isinstance(bm3d, str):
+        bm3d = getattr(core, bm3d)
     c32 = (uvsr(clip) if chroma_sr else half444(clip)).fmtc.bitdepth(bits=32)
     w2x = w2xtrt(c32, 3, ofmt=True)
     vfn = bm3d.BM3Dv2(c32, w2x, sigma, 3, 8, 1, 2, 8).fmtc.bitdepth(bits=16)
