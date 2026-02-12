@@ -146,7 +146,7 @@ def TempoStab(clip: VideoNode, mdargs: dict = {}, mdmode=2) -> VideoNode:
 
 def BM3DRef(
     c420p16: VideoNode, ref: VideoNode,
-    bm3d=core.bm3dcuda_rtc, chroma=True,
+    bm3d="bm3dcuda_rtc", chroma=True,
     sy=2, ry=1, bsy=4, bry=8, pny=2, pry=8,
     sc=2, rc=0, bsc=4, brc=8, pnc=2, prc=6, 
 ) -> VideoNode:
@@ -154,7 +154,10 @@ def BM3DRef(
     from vsutil import split, join
     from ._resample import rgb2opp, opp2rgb, torgbs
     
-    Bv2 = bm3d.BM3Dv2
+    if isinstance(bm3d, str):
+        Bv2 = getattr(core, bm3d).BM3Dv2
+    else:
+        Bv2 = bm3d.BM3Dv2
     hw = c420p16.width // 2  # half width
     hh = c420p16.height // 2  # half height
     srcy_f, srcu_f, srcv_f = split(c420p16.fmtc.bitdepth(bits=32))
@@ -175,7 +178,7 @@ def BM3DRef(
 
 def BM3DWrapper(
     c420p16: VideoNode, 
-    bm3d=core.bm3dcuda_rtc, chroma=True,
+    bm3d="bm3dcuda_rtc", chroma=True,
     sy=1.2, ry=1, bsy=4, bry=8, pny=2, pry=8, dsy=0.6,
     sc=2.4, rc=0, bsc=4, brc=8, pnc=2, prc=6, dsc=1.2,
 ) -> VideoNode:
@@ -183,7 +186,10 @@ def BM3DWrapper(
     from vsutil import split, join
     from ._resample import rgb2opp, opp2rgb, torgbs
     
-    Bv2 = bm3d.BM3Dv2
+    if isinstance(bm3d, str):
+        Bv2 = getattr(core, bm3d).BM3Dv2
+    else:
+        Bv2 = bm3d.BM3Dv2
     hw = c420p16.width // 2  # half width
     hh = c420p16.height // 2  # half height
     srcy_f, srcu_f, srcv_f = split(c420p16.fmtc.bitdepth(bits=32))
