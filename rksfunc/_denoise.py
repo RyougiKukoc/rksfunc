@@ -91,12 +91,13 @@ def w2xtrt(
         crgbs = core.std.ShufflePlanes(clip.fmtc.bitdepth(bits=32), [0]*3, RGB).std.SetFrameProps(_Matrix=0)
     
     if test:
-        w2x = crgbs.w2xnvk.Waifu2x(noise, 1, 2)
+        # w2x = crgbs.w2xnvk.Waifu2x(noise, 1, 2)
+        w2xbe = args.get('w2b', BackendV2.NCNN_VK())
     else:
         w2xbe = args.get('w2b', BackendV2.TRT(fp16=True))
-        preargs = {'backend': w2xbe}
-        preargs.update(w2xargs)
-        w2x = Waifu2x(crgbs, noise, 1, model=Waifu2xModel.cunet, **preargs)
+    preargs = {'backend': w2xbe}
+    preargs.update(w2xargs)
+    w2x = Waifu2x(crgbs, noise, 1, model=Waifu2xModel.cunet, **preargs)
     ofmt = args.get('o420p16', False) or ofmt  # history problem
     
     if ofmt:
