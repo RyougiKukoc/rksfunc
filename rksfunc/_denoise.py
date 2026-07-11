@@ -92,7 +92,7 @@ def w2xtrt(
     
     if test:
         # w2x = crgbs.w2xnvk.Waifu2x(noise, 1, 2)
-        w2xbe = args.get('w2b', BackendV2.NCNN_VK())
+        w2xbe = args.get('w2b', BackendV2.NCNN_VK(fp16=True))
     else:
         w2xbe = args.get('w2b', BackendV2.TRT(fp16=True))
     preargs = {'backend': w2xbe}
