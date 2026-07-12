@@ -21,7 +21,7 @@ def SynDeband(
     limit_elast: float = 1.2,
 ) -> Union[VideoNode, Tuple[VideoNode, VideoNode]]:
     if kill is None:
-        kill = cyuv16.rgvs.RemoveGrain([20, 11]).rgvs.RemoveGrain([20, 11])
+        kill = cyuv16.zsmooth.RemoveGrain([20, 11]).zsmooth.RemoveGrain([20, 11])
     elif not kill:
         kill = cyuv16
     grain = core.std.MakeDiff(cyuv16, kill)
@@ -110,7 +110,7 @@ def USMDering(cyuv16: VideoNode, mat=None, mrad=3, mthr=50,
     mask = HQDeringmod(cyuv16, show=True, mrad=mrad, mthr=mthr)
     dering_1 = core.std.MaskedMerge(cyuv16, blur, mask)
     contra_1 = ContraSharpening(dering_1, cyuv16, 2)
-    dering_2 = core.rgvs.Repair(dering_1, contra_1, 23)
+    dering_2 = core.zsmooth.Repair(dering_1, contra_1, 23)
     if include_mask:
         return dering_2, mask
     else:
@@ -153,9 +153,9 @@ def AliceDeband(clip: VideoNode) -> VideoNode:
     from vsutil import iterate
     from ._resample import yer
     
-    kill = clip.rgvs.RemoveGrain(20).rgvs.RemoveGrain(20)
+    kill = clip.zsmooth.RemoveGrain(20).zsmooth.RemoveGrain(20)
     noise1 = core.std.MakeDiff(clip, kill, planes=[0, 1, 2])
-    noise2 = noise1.rgvs.RemoveGrain(20)
+    noise2 = noise1.zsmooth.RemoveGrain(20)
     noise = LimitFilter(noise2, noise1, thr=0.8, brighten_thr=0.8, elast=1.5)
     noise3 = noise1.knlm.KNLMeansCL(1, 2, 4, 1.25)
     noise = LimitFilter(noise3, noise, thr=0.8, brighten_thr=0.8, elast=1.5)
@@ -185,7 +185,7 @@ def TAAWrapper(cyuv: VideoNode, ay: int, auv: int, cmask: VideoNode = None, rpmo
     preargs = dict(aatype=ay, aatypeu=auv, aatypev=auv, opencl=True)
     preargs.update(taa_args)
     aa = TAAmbk(cyuv, **preargs)
-    aa = core.rgvs.Repair(aa, cyuv, rpmode)
+    aa = core.zsmooth.Repair(aa, cyuv, rpmode)
     if nocmask:
         return aa
     if cmask is None:

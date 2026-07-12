@@ -17,7 +17,7 @@ def scanny(clip: VideoNode) -> VideoNode:
     maskb = TC(c8, 1.3, t_h=6.5, op=2, planes=0)
     maskg = TC(c8, 1.1, t_h=5.0, op=2, planes=0)
     mask = core.std.Expr([maskg, maskb, masks, c8], "a 20 < 65535 a 48 < x 256 * a 96 < y 256 * z ? ? ?", GRAY16)
-    return mask.std.Maximum(0).std.Maximum(0).std.Minimum(0).rgvs.RemoveGrain(20)
+    return mask.std.Maximum(0).std.Maximum(0).std.Minimum(0).zsmooth.RemoveGrain(20)
 
 
 def GammaMask(
