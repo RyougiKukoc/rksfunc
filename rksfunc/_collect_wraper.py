@@ -2,6 +2,48 @@ from vapoursynth import core, VideoNode
 from typing import Union, Tuple, Callable, Literal
 
 
+def _vszip_f3kdb(
+    clip: VideoNode, 
+    range: int | None = None, 
+    y: int | None = None, 
+    cb: int | None = None, 
+    cr: int | None = None, 
+    grainy: int | None = None, 
+    grainc: int | None = None, 
+    sample_mode: int | None = None, 
+    seed: int | None = None, 
+    blur_first: int | None = None, 
+    dynamic_grain: int | None = None,
+    keep_tv_range: int | None = None, 
+    random_algo_ref: int | None = None, 
+    random_algo_grain: int | None = None, 
+    random_param_ref: float | None = None, 
+    random_param_grain: float | None = None, 
+    y_1: int | None = None, 
+    cb_1: int | None = None, 
+    cr_1: int | None = None, 
+    y_2: int | None = None, 
+    cb_2: int | None = None, 
+    cr_2: int | None = None, 
+    scale: bool | None = None,
+    angle_boost: float | None = None,
+    max_angle: float | None = None,
+    **kwargs
+) -> VideoNode:
+    peak = float((1 << 16) - 1) if scale else float((1 << 14) - 1)
+    cvt = lambda x: None if x is None else x * 255 / peak
+    [y, cb, cr, y_1, cb_1, cr_1, y_2, cb_2, cr_2] = map(cvt, [y, cb, cr, y_1, cb_1, cr_1, y_2, cb_2, cr_2])
+    return clip.vszip.Deband(
+        range=range, thr=[y, cb, cr], grain=[grainy, grainc],
+        sample_mode=sample_mode, seed=seed, blur_first=blur_first, 
+        dynamic_grain=dynamic_grain, keep_tv_range=keep_tv_range, 
+        random_algo_ref=random_algo_ref, random_algo_grain=random_algo_grain,
+        random_param_ref=random_param_ref, random_param_grain=random_param_grain,
+        thr1=[y_1, cb_1, cr_1], thr2=[y_2, cb_2, cr_2], 
+        angle_boost=angle_boost, max_angle=max_angle,
+    )
+
+
 def SynDeband(
     cyuv16: VideoNode, 
     r1: int = 12, 
@@ -32,8 +74,8 @@ def SynDeband(
         'blur_first': True,
         'dither_algo': 2,
     }
-    f3k1 = kill.neo_f3kdb.Deband(r1, y1, uv1, uv1, **f3kdb_params)
-    f3k2 = f3k1.neo_f3kdb.Deband(r2, y2, uv2, uv2, **f3kdb_params)
+    f3k1 = _vszip_f3kdb(kill, r1, y1, uv1, uv1, **f3kdb_params)
+    f3k2 = _vszip_f3kdb(f3k1, r2, y2, uv2, uv2, **f3kdb_params)
     if limit:
         from mvsfunc import LimitFilter
         f3k2 = LimitFilter(f3k2, kill, thr=limit_thry, thrc=limit_thrc, elast=limit_elast)
@@ -169,8 +211,8 @@ def AliceDeband(clip: VideoNode) -> VideoNode:
     mask1 = mask1.std.Inflate().std.Minimum()
     mask2 = core.std.Expr([mask1, maskg], "x y > x y ?")
     deband_mask = core.std.Expr([mask1, mask2, srcy8], "z 96 < x y ?")
-    deband = kill.f3kdb.Deband(12, 80, 80, 80, 0, 0, output_depth=16)
-    deband = deband.f3kdb.Deband(24, 60, 60, 60, 0, 0, output_depth=16)
+    deband = _vszip_f3kdb(kill, 12, 80, 80, 80, 0, 0)
+    deband = _vszip_f3kdb(deband, 24, 60, 60, 60, 0, 0)
     deband = LimitFilter(deband, kill, thr=0.6, brighten_thr=0.6, elast=1.2)
     deband = core.std.MaskedMerge(deband, kill, deband_mask, [0, 1, 2], True)
     deband = core.std.MergeDiff(deband, noise)
