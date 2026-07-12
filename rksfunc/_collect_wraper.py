@@ -26,8 +26,8 @@ def _vszip_f3kdb(
     cb_2: int | None = None, 
     cr_2: int | None = None, 
     scale: bool | None = None,
-    angle_boost: float | None = None,
-    max_angle: float | None = None,
+    angle_boost: float | None = 1.5,
+    max_angle: float | None = 0.15,
     **kwargs
 ) -> VideoNode:
     peak = float((1 << 16) - 1) if scale else float((1 << 14) - 1)
