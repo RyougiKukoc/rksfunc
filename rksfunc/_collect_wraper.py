@@ -2,7 +2,7 @@ from vapoursynth import core, VideoNode
 from typing import Union, Tuple, Callable, Literal
 
 
-def _vszip_f3kdb(
+def F3kdbCompat(
     clip: VideoNode, 
     range: int | None = 15, 
     y: int | None = 64, 
@@ -74,8 +74,8 @@ def SynDeband(
         'blur_first': True,
         'dither_algo': 2,
     }
-    f3k1 = _vszip_f3kdb(kill, r1, y1, uv1, uv1, **f3kdb_params)
-    f3k2 = _vszip_f3kdb(f3k1, r2, y2, uv2, uv2, **f3kdb_params)
+    f3k1 = F3kdbCompat(kill, r1, y1, uv1, uv1, **f3kdb_params)
+    f3k2 = F3kdbCompat(f3k1, r2, y2, uv2, uv2, **f3kdb_params)
     if limit:
         from mvsfunc import LimitFilter
         f3k2 = LimitFilter(f3k2, kill, thr=limit_thry, thrc=limit_thrc, elast=limit_elast)
