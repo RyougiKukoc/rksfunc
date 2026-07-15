@@ -16,8 +16,9 @@ def DPIRMDegrain(
     from vapoursynth import YUV, GRAY
     from vsmlrt import DPIR, DPIRModel, Backend
     from mvsfunc import LimitFilter
-    from havsfunc import QTGMC, MCTemporalDenoise
+    from havsfunc import MCTemporalDenoise
     from math import tanh
+    from vsdeinterlace import QTempGaussMC
     from ._resample import yer, mergeuv
     
     assert clip.format.color_family in [YUV, GRAY]
@@ -27,7 +28,7 @@ def DPIRMDegrain(
     is_yuv = clip.format.color_family == YUV
     y = yer(clip) if is_yuv else clip
     
-    qtg_args = dict(InputType=1, Sharpness=0, SourceMatch=3)
+    qtgmc = QTempGaussMC(source_match_mode=QTempGaussMC.SourceMatchMode.TWICE_REFINED)
     dpir_preargs = dict(strength=10, backend=Backend.TRT(fp16=True, num_streams=2))
     dpir_preargs.update(dpir_args)
     limit_preargs = dict(thr=3, elast=2)
@@ -36,15 +37,15 @@ def DPIRMDegrain(
     mdg_preargs.update(mdg_args)
     
     # DPIR & Limit
-    y_qt = QTGMC(y, **qtg_args)
-    dpi = (y_qt if plane_qtg else y).fmtc.bitdepth(bits=32)
+    y_mc = qtgmc.deshimmer(y)
+    dpi = (y_mc if plane_qtg else y).fmtc.bitdepth(bits=32)
     y_dp = DPIR(dpi, model=DPIRModel.drunet_gray, **dpir_preargs).fmtc.bitdepth(bits=16)
     y_lm = LimitFilter(y, y_dp, **limit_preargs)
     
     # MDegrain
     dif = core.std.MakeDiff(y, y_dp)
     dif_lm = core.std.MakeDiff(y_lm, y_dp)
-    dif_lm = QTGMC(dif_lm, **qtg_args) if grain_qtg else dif_lm
+    dif_lm = qtgmc.deshimmer(dif_lm) if grain_qtg else dif_lm
     dif_md = MCTemporalDenoise(dif, p=dif_lm, limit=0, **mdg_preargs)
     mdg_l = core.std.MergeDiff(y_dp, dif_md)
     
@@ -53,7 +54,7 @@ def DPIRMDegrain(
         dif1 = core.std.MakeDiff(y, y_dp)
         dif2 = core.std.MakeDiff(y, mdg_l)
         neutral = 1 << 15
-        mdg_d = core.std.Expr([dif1, dif2, y_qt, mdg_l], f'x {neutral} - abs y {neutral} - abs < z a ?')
+        mdg_d = core.std.Expr([dif1, dif2, y_mc, mdg_l], f'x {neutral} - abs y {neutral} - abs < z a ?')
         y_mid = (prot_lthr + prot_hthr) / 2
         y_len = (prot_hthr - prot_lthr) / 4
         lut_y = [(1 + tanh((x - y_mid) / y_len)) / 2 * 65535 for x in range(65536)]
@@ -113,9 +114,10 @@ def w2xtrt(
         return w2x
 
 
-def TempoStab(clip: VideoNode, mdargs: dict = {}, mdmode=2) -> VideoNode:
+def TempoStab(clip: VideoNode, mdargs: dict = {}, **kwargs) -> VideoNode:
     from vapoursynth import YUV, GRAY, Error
-    from havsfunc import SMDegrain, QTGMC, MCTemporalDenoise
+    from havsfunc import MCTemporalDenoise
+    from vsdeinterlace import QTempGaussMC
     from ._resample import yer, mergeuv
     
     if clip.format.color_family != YUV and clip.format.color_family != GRAY:
@@ -127,17 +129,11 @@ def TempoStab(clip: VideoNode, mdargs: dict = {}, mdmode=2) -> VideoNode:
         clip_y = yer(clip)
     else:
         clip_y = clip
-    tref = QTGMC(clip_y, InputType=1, Sharpness=0, SourceMatch=3)
-    if mdmode == 1:
-        pre_mdargs = {'RefineMotion': True, 'dct': 6, 'blksize': 32, 'prefilter': tref}
-        pre_mdargs.update(mdargs)
-        smd = SMDegrain(clip_y, **pre_mdargs)
-    elif mdmode == 2:
-        pre_mdargs = {'p': tref, 'refine': True, 'blksize': 32, 'limit': 0, 'DCT': 6}
-        pre_mdargs.update(mdargs)
-        smd = MCTemporalDenoise(clip_y, **pre_mdargs)
-    else:
-        raise ValueError('invalid mdmode value.')
+    tref = QTempGaussMC(source_match_mode=QTempGaussMC.SourceMatchMode.TWICE_REFINED, 
+                        sharpen_strength=0).deshimmer(clip_y)
+    pre_mdargs = {'p': tref, 'refine': True, 'blksize': 32, 'limit': 0, 'DCT': 6}
+    pre_mdargs.update(mdargs)
+    smd = MCTemporalDenoise(clip_y, **pre_mdargs)
     if clip.format.color_family == YUV:
         smd = mergeuv(smd, clip)
     if origdep != 16:
