@@ -298,7 +298,7 @@ def AdaptiveBM3D(clip: VideoNode) -> VideoNode:
     from ._resample import mergeuv
     
     degrain_l = BM3DWrapper(clip)
-    degrain_d = clip.bilateral.Bilateral(degrain_l, 0.5)
+    degrain_d = clip.vszip.Bilateral(degrain_l, 0.5)
     amask = degrain_l.zsmooth.RemoveGrain([20, 11]).zsmooth.RemoveGrain([20, 11])
     amask = amask.std.PlaneStats().adg.Mask(12)
     degrain = core.std.MaskedMerge(degrain_l, degrain_d, amask, first_plane=True)

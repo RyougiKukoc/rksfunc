@@ -1,13 +1,11 @@
 from vapoursynth import core, VideoNode
 from typing import Union, Tuple, Callable
 from functools import partial
-try:
-    from mvsfunc import ToRGB, ToYUV
-    torgbs = partial(ToRGB, matrix='709', depth=32)
-    to420p16 = partial(ToYUV, matrix='709', css='420', depth=16, dither=0)
-    to444p16 = partial(ToYUV, matrix='709', css='444', depth=16, dither=0)
-except ImportError:
-    pass
+from mvsfunc import ToRGB, ToYUV
+
+torgbs = partial(ToRGB, matrix='709', depth=32)
+to420p16 = partial(ToYUV, matrix='709', css='420', depth=16, dither=0)
+to444p16 = partial(ToYUV, matrix='709', css='444', depth=16, dither=0)
 
 
 def Depth(clip: VideoNode, bits) -> VideoNode:
@@ -56,8 +54,12 @@ def uvsr(c420p16: VideoNode, mode: Union[int, str] = -1, opencl: bool = True) ->
 
 
 def LeftChroma2x(clip: VideoNode, opencl: bool) -> VideoNode:
-    n2x = core.nnedi3cl.NNEDI3CL if opencl else core.znedi3.nnedi3
-    h2x = n2x(clip, field=0, dh=True)
+    n2x = core.nnedi3vk.NNEDI3 if opencl else core.znedi3.nnedi3
+    try:
+        h2x = n2x(clip, field=0, dh=True)
+    except Exception as e:
+        n2x = core.nnedi3cl.NNEDI3CL
+        h2x = n2x(clip, field=0, dh=True)
     w2x = n2x(h2x.std.Transpose().resize.Bicubic(src_left=.5), field=1, dh=True)
     return w2x.std.Transpose()
 
