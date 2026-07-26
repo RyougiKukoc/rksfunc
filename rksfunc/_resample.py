@@ -29,7 +29,7 @@ def uvsr(c420p16: VideoNode, mode: Union[int, str] = -1, opencl: bool = True) ->
     YUV420P16 -> YUV444P16
     :param c420p16: input VideoNode.
     :param mode: index or name in ['nnedi3', 'bicubic', 'krigbilateral']
-    :param opencl: whether to use nnedi3cl, default znedi3.
+    :param opencl: whether to use nnedi3vk, default znedi3.
     :return: the YUV444P16 form of input.
     """
     from vapoursynth import YUV444P16, YUV
@@ -50,7 +50,14 @@ def uvsr(c420p16: VideoNode, mode: Union[int, str] = -1, opencl: bool = True) ->
     elif mode == 'bicubic':
         return c420p16.resize.Bicubic(format=YUV444P16)
     elif mode == 'krigbilateral':
-        return KrigBilateral(c420p16)
+        try:
+            cfl = KrigBilateral(c420p16)
+        except Exception as e:
+            import logging
+            logging.info(f"KrigBilateral fails: {e}")
+            logging.info(f"Use cfl.KACFL in uvsr instead.")
+            cfl = core.cfl.KACFL(c420p16)
+        return cfl
 
 
 def LeftChroma2x(clip: VideoNode, opencl: bool) -> VideoNode:
@@ -204,7 +211,7 @@ def RescaleLuma(
     if filter is not None:
         descale = filter(descale)
     
-    upsizer = "nnedi3cl" if opencl else "znedi3"
+    upsizer = "nnedi3vk" if opencl else "znedi3"
     rescale = nnedi3_resample(descale, ow, oh, mode=upsizer, **cargs)
     
     if linemode:

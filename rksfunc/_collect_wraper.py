@@ -159,7 +159,7 @@ def daaJanmod(clip: VideoNode, itr: int = 4, opencl: bool = True) -> VideoNode:
     # copy from Jan
     # Interpolation
     if opencl:
-        nnedi3 = core.nnedi3cl.NNEDI3CL
+        nnedi3 = core.nnedi3vk.NNEDI3
     else:
         nnedi3 = core.znedi3.nnedi3
     nnargs = dict(nsize=4, nns=4, qual=2, pscrn=1)
