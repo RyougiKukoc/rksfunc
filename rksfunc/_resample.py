@@ -28,14 +28,14 @@ def uvsr(c420p16: VideoNode, mode: Union[int, str] = -1, opencl: bool = True) ->
     """
     YUV420P16 -> YUV444P16
     :param c420p16: input VideoNode.
-    :param mode: index or name in ['nnedi3', 'bicubic', 'krigbilateral']
+    :param mode: index or name in ['nnedi3', 'bicubic', 'cfl']
     :param opencl: whether to use nnedi3vk, default znedi3.
     :return: the YUV444P16 form of input.
     """
     from vapoursynth import YUV444P16, YUV
     from functools import partial
     
-    mode_list = ['nnedi3', 'bicubic', 'krigbilateral']
+    mode_list = ['nnedi3', 'bicubic', 'cfl']
     if isinstance(mode, int):
         mode = mode_list[mode]
     elif isinstance(mode, str):
@@ -49,14 +49,8 @@ def uvsr(c420p16: VideoNode, mode: Union[int, str] = -1, opencl: bool = True) ->
         return core.std.ShufflePlanes([y, u, v], [0] * 3, YUV)
     elif mode == 'bicubic':
         return c420p16.resize.Bicubic(format=YUV444P16)
-    elif mode == 'krigbilateral':
-        try:
-            cfl = KrigBilateral(c420p16)
-        except Exception as e:
-            import logging
-            logging.info(f"KrigBilateral fails: {e}")
-            logging.info(f"Use cfl.KACFL in uvsr instead.")
-            cfl = core.cfl.KACFL(c420p16)
+    elif mode == 'cfl':
+        cfl = core.cfl.KACFL(c420p16)
         return cfl
 
 
