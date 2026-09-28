@@ -50,12 +50,15 @@ def uvsr(c420p16: VideoNode, mode: Union[int, str] = -1, opencl: bool = True) ->
     elif mode == 'bicubic':
         return c420p16.resize.Bicubic(format=YUV444P16)
     elif mode == 'cfl':
-        cfl = core.cfl.KACFL(c420p16)
+        # cfl = core.cfl.KACFL(c420p16)
+        cfl = KrigBilateral(c420p16)
         return cfl
 
 
 def LeftChroma2x(clip: VideoNode, opencl: bool) -> VideoNode:
+    from functools import partial
     n2x = core.nnedi3vk.NNEDI3 if opencl else core.znedi3.nnedi3
+    n2x = partial(n2x, nsize=4, nns=4)
     try:
         h2x = n2x(clip, field=0, dh=True)
     except Exception as e:
@@ -70,7 +73,7 @@ def KrigBilateral(c420p16: VideoNode, shader_fp: str = None) -> VideoNode:
     
     assert c420p16.format.name == 'YUV420P16'
     if shader_fp is None:
-        shader_fp = os.path.join(os.path.dirname(__file__), 'KrigBilateral', 'KrigBilateral.glsl')
+        shader_fp = os.path.join(os.path.dirname(__file__), 'KrigBilateral.glsl')
     return c420p16.placebo.Shader(shader=shader_fp)
 
 
