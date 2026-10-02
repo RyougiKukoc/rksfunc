@@ -2,6 +2,8 @@ Simple functions I use.
 
 # Installation
 
+Requires Python 3.10 or newer.
+
 ```shell
 python -m pip install "rksfunc @ git+https://github.com/RyougiKukoc/rksfunc.git"
 ```
