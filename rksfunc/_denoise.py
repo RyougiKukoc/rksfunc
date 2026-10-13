@@ -190,6 +190,69 @@ def TempoStab(
     return smd
 
 
+def BM3Dvk2Wrapper(
+    clip: VideoNode,
+    sigma: tuple[float] = (3, 6, 6),
+    radius_gray: int = 1,
+    radius_opp: int = 0,
+    sigma_basic: tuple[float] = (5, 10, 10),
+    ref: VideoNode | None = None,
+    **kwargs,
+):
+    from vapoursynth import GRAY, YUV, RGB
+    from mvsfunc import ToRGB, ToYUV
+    from ._resample import yer, half444
+    if clip.format.color_family == GRAY:
+        y32, c32 = clip.vszip.Dither(32), None
+    elif clip.format.color_family == RGB:
+        y32, c32 = None, clip.vszip.Dither(32)
+    elif clip.format.name.startswith("YUV444"):
+        y32, c32 = None, ToRGB(clip, '709', 32)
+    else:
+        s32 = clip.vszip.Dither(32)
+        y32, c32 = yer(s32), ToRGB(half444(s32), '709')
+    if ref is None:
+        yref, cref = None, None
+    elif ref.format.color_family == GRAY:
+        yref, cref = ref.vszip.Dither(32), None
+    elif ref.format.color_family == RGB:
+        cref = ref.vszip.Dither(32)
+        yref = yer(ToYUV(cref, '709', '444'))
+    elif ref.format.name.startswith("YUV444"):
+        r32 = ref.vszip.Dither(32)
+        yref, cref = yer(r32), ToRGB(r32, '709')
+    else:
+        r32 = ref.vszip.Dither(32)
+        yref, cref = yer(r32), ToRGB(half444(r32), '709')
+    bm3d_kwargs = dict(profile="vn")
+    bm3d_kwargs.update(kwargs)
+    if y32 is not None:
+        if yref is None:
+            yref = core.bm3dvk2.BM3D(y32, None, sigma=sigma_basic[0], radius=radius_gray, **bm3d_kwargs)
+        else:
+            assert y32.height == yref.height and y32.width == yref.width, \
+                f"{y32.format = }\n{yref.format = }"
+        y_final = core.bm3dvk2.BM3D(y32, yref, sigma=sigma[0], radius=radius_gray, **bm3d_kwargs)
+    if c32 is not None:
+        if cref is None:
+            cref = core.bm3dvk2.BM3D(c32, None, sigma=sigma_basic, radius=radius_opp, **bm3d_kwargs)
+        else:
+            assert c32.height == cref.height and c32.width == cref.width, \
+                f"{c32.format = }\n{cref.format = }"
+        c_final = core.bm3dvk2.BM3D(c32, cref, sigma=sigma, radius=radius_opp, **bm3d_kwargs)
+    obit = clip.format.bits_per_sample
+    if clip.format.color_family == GRAY:
+        return y_final.vszip.Dither(obit)
+    elif clip.format.color_family == RGB:
+        return c_final.vszip.Dither(obit)
+    elif clip.format.name.startswith("YUV444"):
+        return ToYUV(c_final, '709', '444', obit, dither=0)
+    else:
+        y_final = y_final.vszip.Dither(obit)
+        c_final = ToYUV(c_final, '709', '420', obit, dither=0)
+        return core.std.ShufflePlanes([y_final, c_final, c_final], [0, 1, 2], YUV, clip)
+
+
 def BM3DRef(
     c420p16: VideoNode, ref: VideoNode,
     bm3d="bm3dcuda_rtc", chroma=True,
@@ -252,39 +315,6 @@ def BM3DWrapper(
     return vfinal.fmtc.bitdepth(bits=16)
 
 
-def light_vfinal(
-    c420p16, s1=1.2, r1=1, bs1=3, br1=12, pn1=2, pr1=8, ds1=0.5, 
-    s2=2, r2=0, bs2=4, br2=8, pn2=2, pr2=6, ds2=1, bm3d="bm3dcuda_rtc", fast=True, chroma=True
-) -> VideoNode:
-    return BM3DWrapper(
-        c420p16, eval(f"core.{bm3d}"), chroma,
-        s1, r1, bs1, br1, pn1, pr1, ds1,
-        s2, r2, bs2, br2, pn2, pr2, ds2,
-    )
-
-
-def medium_vfinal(
-    c420p16, s1=2.5, r1=1, bs1=3, br1=12, pn1=2, pr1=8,
-    s2=2, r2=0, bs2=4, br2=8, pn2=2, pr2=6, ref=None, dftsigma=4, dfttbsize=1,
-    bm3d="bm3dcuda_rtc", fast=True, chroma=True
-) -> VideoNode:
-    if ref is None:
-        from havsfunc import EdgeCleaner
-        from importlib import import_module
-        try:
-            dfttest2 = import_module('dfttest2')
-            DFTTest = dfttest2.DFTTest
-        except ModuleNotFoundError:
-            DFTTest = core.dfttest.DFTTest
-        ref = DFTTest(c420p16, sigma=dftsigma, tbsize=dfttbsize, planes=[0, 1, 2])
-        ref = EdgeCleaner(ref)
-    return BM3DRef(
-        c420p16, ref, eval(f"core.{bm3d}"), chroma,
-        s1, r1, bs1, br1, pn1, pr1,
-        s2, r2, bs2, br2, pn2, pr2,
-    )
-    
-    
 def DeFilmGrain(clip: VideoNode, s1=16, s2=3, s3=3, g=1.5, dark=10000) -> VideoNode:
     from vapoursynth import YUV, GRAY, Error
     from havsfunc import QTGMC
@@ -320,7 +350,7 @@ def DeFilmGrain(clip: VideoNode, s1=16, s2=3, s3=3, g=1.5, dark=10000) -> VideoN
     emask = iterate(emask, core.std.Inflate, 2)
     emask = core.std.Expr([emask, clearplane], f"y {dark} > 0 x ?")
     tref = QTGMC(clip_y, InputType=1, Sharpness=0, SourceMatch=3)
-    ttp = clip_y.ttmpsm.TTempSmooth(3, 5, 3, 3, pfclip=tref)
+    ttp = clip_y.zsmooth.TTempSmooth(3, 5, 3, 3, pfclip=tref)
     ttp = core.std.MaskedMerge(ttp, line, emask)
     ttp_f = ttp.fmtc.bitdepth(bits=32)
     vfinal_f = ttp_f.bm3dcuda_rtc.BM3Dv2(clip_yf, s3, 3, 12, 1, 2, 8)
@@ -332,21 +362,39 @@ def DeFilmGrain(clip: VideoNode, s1=16, s2=3, s3=3, g=1.5, dark=10000) -> VideoN
     return vfinal
 
 
-def ChromaDenoise(clip: VideoNode, chroma_sr=False, sigma=1.2, bm3d="bm3dcuda_rtc") -> VideoNode:
-    from ._resample import uvsr, half444, mergeuv
-    
-    if isinstance(bm3d, str):
-        bm3d = getattr(core, bm3d)
-    c32 = (uvsr(clip) if chroma_sr else half444(clip)).fmtc.bitdepth(bits=32)
-    w2x = w2xtrt(c32, 3, ofmt=True)
-    vfn = bm3d.BM3Dv2(c32, w2x, sigma, 3, 8, 1, 2, 8).fmtc.bitdepth(bits=16)
-    return mergeuv(clip, vfn)
+def ChromaDenoise(clip: VideoNode, sigma=1.2, bm3d="bm3dvk2", **w2xtrt_kwargs) -> VideoNode:
+    from vapoursynth import YUV
+    from functools import partial
+    from mvsfunc import ToYUV, ToRGB
+    from ._resample import half444
+    w2xtrt_params = dict(noise=3)
+    w2xtrt_params.update(w2xtrt_kwargs)
+    if bm3d == "bm3dvk2":
+        BM3D = partial(core.bm3dvk2.BM3D, profile='vn', sigma=sigma, radius=1)
+        w2xtrt_params['ofmt'] = False
+    else:
+        BM3D = partial(getattr(core, bm3d).BM3Dv2, sigma=sigma, radius=1,
+                       block_step=4, bm_range=8, ps_num=2, ps_range=8)
+        w2xtrt_params['ofmt'] = True
+    c16 = clip.vszip.Dither(16)
+    c32 = half444(clip).vszip.Dither(32)
+    w2x = w2xtrt(c32, **w2xtrt_params)
+    if bm3d == "bm3dvk2":
+        c32 = ToRGB(c32, '709')
+    vfn = BM3D(c32, w2x).vszip.Dither(16)
+    if bm3d == "bm3dvk2":
+        vfn = ToYUV(vfn, '709', '444')
+    return core.std.ShufflePlanes([c16, vfn], [0, 1, 2], YUV, c16)
+
 
 def AdaptiveBM3D(clip: VideoNode) -> VideoNode:
     from ._mask import GammaMask
     from ._resample import mergeuv
     
-    degrain_l = BM3DWrapper(clip)
+    if hasattr(core, 'bm3dvk2'):
+        degrain_l = BM3Dvk2Wrapper(clip)
+    else:
+        degrain_l = BM3DWrapper(clip)
     degrain_d = clip.vszip.Bilateral(degrain_l, 0.5)
     amask = degrain_l.zsmooth.RemoveGrain([20, 11]).zsmooth.RemoveGrain([20, 11])
     amask = amask.std.PlaneStats().adg.Mask(12)

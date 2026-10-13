@@ -35,7 +35,7 @@ request PR through its [module interface](https://github.com/AliceTeaParty/vapou
 Once a wheel is explicitly published:
 
 ```shell
-python -m pip install --extra-index-url https://aliceteaparty.github.io/vapoursynth-api4-wheels/simple/ rksfunc
+pip install --extra-index-url https://aliceteaparty.github.io/vapoursynth-api4-wheels/simple/ rksfunc
 ```
 
 # Bundled shader

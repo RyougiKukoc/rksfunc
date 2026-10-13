@@ -1,11 +1,24 @@
 from vapoursynth import core, VideoNode
 from typing import Union, Tuple, Callable
 from functools import partial
-from mvsfunc import ToRGB, ToYUV
 
-torgbs = partial(ToRGB, matrix='709', depth=32)
-to420p16 = partial(ToYUV, matrix='709', css='420', depth=16, dither=0)
-to444p16 = partial(ToYUV, matrix='709', css='444', depth=16, dither=0)
+
+def torgbs(*args, **kwargs):
+    from mvsfunc import ToRGB
+    func = partial(ToRGB, matrix='709', depth=32)
+    return func(*args, **kwargs)
+
+
+def to420p16(*args, **kwargs):
+    from mvsfunc import ToYUV
+    func = partial(ToYUV, matrix='709', css='420', depth=16, dither=0)
+    return func(*args, **kwargs)
+
+
+def to444p16(*args, **kwargs):
+    from mvsfunc import ToYUV
+    func = partial(ToYUV, matrix='709', css='444', depth=16, dither=0)
+    return func(*args, **kwargs)
 
 
 def Depth(clip: VideoNode, bits) -> VideoNode:
@@ -50,8 +63,10 @@ def uvsr(c420p16: VideoNode, mode: Union[int, str] = -1, opencl: bool = True) ->
     elif mode == 'bicubic':
         return c420p16.resize.Bicubic(format=YUV444P16)
     elif mode == 'cfl':
-        # cfl = core.cfl.KACFL(c420p16)
-        cfl = KrigBilateral(c420p16)
+        if hasattr(core, 'krigvk'):
+            cfl = core.krigvk.KrigBilateral(c420p16, 16)
+        else:
+            cfl = KrigBilateral(c420p16)
         return cfl
 
 
