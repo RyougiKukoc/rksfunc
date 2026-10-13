@@ -1,7 +1,5 @@
 import vapoursynth as vs
 from vapoursynth import core
-from ._resample import yer, ToYUV
-from functools import partial
 
 def DescaleKernelTester(clip: vs.VideoNode, descale_args: dict, cache_lim: int = 10, topk: int = 5) -> vs.VideoNode:
     """
@@ -10,6 +8,10 @@ def DescaleKernelTester(clip: vs.VideoNode, descale_args: dict, cache_lim: int =
     `cache_lim`: cache limit, according to your memory
     `top`: increase this to see more than Bicubic when you need
     """
+    from mvsfunc import ToYUV
+    from functools import partial
+    from ._resample import yer
+
     def transfoer_property(n, f):
         fout = f[0].copy()
         for df in f[1:]:
