@@ -202,6 +202,9 @@ def BM3Dvk2Wrapper(
     from vapoursynth import GRAY, YUV, RGB
     from mvsfunc import ToRGB, ToYUV
     from ._resample import yer, half444
+    make_tuple = lambda x: x if hasattr(x, "__iter__") else (x,)
+    sigma = make_tuple(sigma)
+    sigma_basic = make_tuple(sigma_basic)
     if clip.format.color_family == GRAY:
         y32, c32 = clip.vszip.Dither(32), None
     elif clip.format.color_family == RGB:
